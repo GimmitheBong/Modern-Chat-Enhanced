@@ -215,7 +215,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
     )
     @Override
     default boolean featureRedesign_PreserveFocusOnOutsideClick() {
-        return false;
+        return true;
     }
 
     @ConfigItem(
