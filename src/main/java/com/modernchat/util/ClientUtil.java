@@ -41,9 +41,18 @@ public class ClientUtil
      * MUST be on client thread.
      */
     public static boolean isSystemTextEntryActive(Client client) {
-        int type = client.getVarbitValue(VarClientInt.INPUT_TYPE);
-        if (type != 0 && type != 1) {
-            return true;
+        // The deob client's varbit cache (client.sy) can be null very early in
+        // the lifecycle (pre-login, before any varbit script has loaded), and
+        // PostClientTick can fire in that window. Treat any failure as "no
+        // system text entry active" — widget fallbacks below are naturally
+        // safe since getWidget returns null when interfaces aren't loaded.
+        try {
+            int type = client.getVarbitValue(VarClientInt.INPUT_TYPE);
+            if (type != 0 && type != 1) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // varbit cache not ready yet
         }
 
         // Fallback: the system prompts
@@ -53,8 +62,12 @@ public class ClientUtil
         }
 
         // Fallback: typed text buffer for system inputs
-        String s = client.getVarcStrValue(VarClientStr.INPUT_TEXT);
-        return s != null && !s.isEmpty();
+        try {
+            String s = client.getVarcStrValue(VarClientStr.INPUT_TEXT);
+            return s != null && !s.isEmpty();
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     public static boolean isSystemWidgetActive(Client client) {
@@ -229,8 +242,12 @@ public class ClientUtil
     }
 
     public static boolean isChatInputEditable(Client client) {
-        if (client.getVarbitValue(VarClientInt.INPUT_TYPE) != 0)
-            return false;
+        try {
+            if (client.getVarbitValue(VarClientInt.INPUT_TYPE) != 0)
+                return false;
+        } catch (Throwable ignored) {
+            // varbit cache not ready yet — fall through to widget check
+        }
 
         Widget w = ClientUtil.getChatInputWidget(client);
         return w != null && !w.isHidden();
