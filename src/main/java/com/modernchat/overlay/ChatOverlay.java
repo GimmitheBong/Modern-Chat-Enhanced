@@ -1424,11 +1424,19 @@ public class ChatOverlay extends OverlayPanel
 
     @Subscribe
     public void onClientTick(ClientTick tick) {
+        // While legacy chat is showing (bank search, GE search, dialogs, etc.) the
+        // chatbox must stay at default size so the game's fixed-width children render
+        // without overflowing. resetChatbox(true) in showLegacyChat sets that up; this
+        // tick must not undo it.
+        if (legacyShowing)
+            return;
         resizeChatbox(desiredChatWidth, desiredChatHeight);
     }
 
     @Subscribe
     public void onScriptPostFired(ScriptPostFired e) {
+        if (legacyShowing)
+            return;
         switch (e.getScriptId()) {
             case ScriptID.BUILD_CHATBOX:
             case ScriptID.MESSAGE_LAYER_OPEN:
