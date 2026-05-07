@@ -2713,7 +2713,7 @@ public class ChatOverlay extends OverlayPanel
                 if (config.isClickOutsideToClose() && mainConfig.featureToggle_Enabled()) {
                     setHidden(true);
                     eventBus.post(new ChatToggleEvent(true));
-                } else {
+                } else if (!config.isPreserveFocusOnOutsideClick()) {
                     boolean wasFocused = inputFocused;
                     unfocusInput();
                     if (wasFocused) {

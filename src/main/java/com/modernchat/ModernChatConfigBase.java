@@ -60,6 +60,7 @@ public interface ModernChatConfigBase extends
         String featureRedesign_Resizeable = "featureRedesign_Resizeable";
         String featureRedesign_MessageContainer_Scrollable = "featureRedesign_MessageContainer_Scrollable";
         String featureRedesign_ClickOutsideToClose = "featureRedesign_ClickOutsideToClose";
+        String featureRedesign_PreserveFocusOnOutsideClick = "featureRedesign_PreserveFocusOnOutsideClick";
         String featureRedesign_ShowNotificationBadge = "featureRedesign_ShowNotificationBadge";
         String featureRedesign_AllowClickThrough = "featureRedesign_AllowClickThrough";
         String featureRedesign_AutoSelectPrivateTab = "featureRedesign_AutoSelectPrivateTab";
@@ -238,6 +239,7 @@ public interface ModernChatConfigBase extends
         FEATURE_REDESIGN_RESIZEABLE(Keys.featureRedesign_Resizeable, Kind.BOOL, ModernChatConfigBase::featureRedesign_Resizeable),
         FEATURE_REDESIGN_SCROLLABLE(Keys.featureRedesign_MessageContainer_Scrollable, Kind.BOOL, ModernChatConfigBase::featureRedesign_MessageContainer_Scrollable),
         FEATURE_REDESIGN_CLICK_OUTSIDE_TO_CLOSE(Keys.featureRedesign_ClickOutsideToClose, Kind.BOOL, ModernChatConfigBase::featureRedesign_ClickOutsideToClose),
+        FEATURE_REDESIGN_PRESERVE_FOCUS_ON_OUTSIDE_CLICK(Keys.featureRedesign_PreserveFocusOnOutsideClick, Kind.BOOL, ModernChatConfigBase::featureRedesign_PreserveFocusOnOutsideClick),
         FEATURE_REDESIGN_SHOW_BADGE(Keys.featureRedesign_ShowNotificationBadge, Kind.BOOL, ModernChatConfigBase::featureRedesign_ShowNotificationBadge),
         FEATURE_REDESIGN_ALLOW_CLICK_THROUGH(Keys.featureRedesign_AllowClickThrough, Kind.BOOL, ModernChatConfigBase::featureRedesign_AllowClickThrough),
         FEATURE_REDESIGN_AUTO_SELECT_PRIVATE_TAB(Keys.featureRedesign_AutoSelectPrivateTab, Kind.BOOL, ModernChatConfigBase::featureRedesign_AutoSelectPrivateTab),
@@ -527,6 +529,7 @@ public interface ModernChatConfigBase extends
         @Override public boolean featureRedesign_Resizeable() { return getBool(Keys.featureRedesign_Resizeable, DEFAULTS.featureRedesign_Resizeable()); }
         @Override public boolean featureRedesign_MessageContainer_Scrollable() { return getBool(Keys.featureRedesign_MessageContainer_Scrollable, DEFAULTS.featureRedesign_MessageContainer_Scrollable()); }
         @Override public boolean featureRedesign_ClickOutsideToClose() { return getBool(Keys.featureRedesign_ClickOutsideToClose, DEFAULTS.featureRedesign_ClickOutsideToClose()); }
+        @Override public boolean featureRedesign_PreserveFocusOnOutsideClick() { return getBool(Keys.featureRedesign_PreserveFocusOnOutsideClick, DEFAULTS.featureRedesign_PreserveFocusOnOutsideClick()); }
         @Override public boolean featureRedesign_ShowNotificationBadge() { return getBool(Keys.featureRedesign_ShowNotificationBadge, DEFAULTS.featureRedesign_ShowNotificationBadge()); }
         @Override public boolean featureRedesign_AllowClickThrough() { return getBool(Keys.featureRedesign_AllowClickThrough, DEFAULTS.featureRedesign_AllowClickThrough()); }
         @Override public boolean featureRedesign_AutoSelectPrivateTab() { return getBool(Keys.featureRedesign_AutoSelectPrivateTab, DEFAULTS.featureRedesign_AutoSelectPrivateTab()); }

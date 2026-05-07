@@ -207,10 +207,22 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
     }
 
     @ConfigItem(
+        keyName = Keys.featureRedesign_PreserveFocusOnOutsideClick,
+        name = "Preserve Focus On Outside Click",
+        description = "Keep chat input focused when clicking outside the chat area (only applies when 'Click Outside Closes' is disabled)",
+        position = 8,
+        section = modernChatSection
+    )
+    @Override
+    default boolean featureRedesign_PreserveFocusOnOutsideClick() {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = Keys.featureRedesign_ShowNotificationBadge,
         name = "Show Notification Badge",
         description = "Show a notification badge on the tab button when there are unread messages",
-        position = 8,
+        position = 9,
         section = modernChatSection
     )
     @Override
@@ -222,7 +234,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_AllowClickThrough,
         name = "Allow Click-Through",
         description = "Allow clicking through the chat overlay to interact with game elements",
-        position = 9,
+        position = 10,
         section = modernChatSection
     )
     @Override
@@ -234,7 +246,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_AutoSelectPrivateTab,
         name = "Auto Select Private Tab",
         description = "Automatically select the private chat tab when receiving a private message",
-        position = 10,
+        position = 11,
         section = modernChatSection
     )
     @Override
@@ -246,7 +258,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_AutoClosePrivateTab,
         name = "Auto Close Private Tab",
         description = "Automatically close private message tabs when sending a message",
-        position = 11,
+        position = 12,
         section = modernChatSection
     )
     @Override
@@ -258,7 +270,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_ShowNpc,
         name = "Show NPC Messages",
         description = "Show NPC messages in the chat",
-        position = 12,
+        position = 13,
         section = modernChatSection
     )
     @Override
@@ -270,7 +282,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_GameTabEnabled,
         name = "Game Tab",
         description = "Show a dedicated Game tab for game messages",
-        position = 13,
+        position = 14,
         section = modernChatSection
     )
     @Override
@@ -282,7 +294,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_TradeTabEnabled,
         name = "Trade Tab",
         description = "Show a dedicated Trade tab for trade messages",
-        position = 14,
+        position = 15,
         section = modernChatSection
     )
     @Override
@@ -294,7 +306,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_ShowTabIcons,
         name = "Show Tab Icons",
         description = "Show player icons (ironman, moderator, etc.) in private message tab titles",
-        position = 15,
+        position = 16,
         section = modernChatSection
     )
     @Override
@@ -1111,7 +1123,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_ShowReportButton,
         name = "Show Report Button",
         description = "Show the report button in the chat input box",
-        position = 18,
+        position = 19,
         section = modernChatSection
     )
     @Override
@@ -1123,7 +1135,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         keyName = Keys.featureRedesign_ShowSessionTimer,
         name = "Session Timer",
         description = "Show a session timer in the chat input box (replaces report button text when report button is enabled)",
-        position = 19,
+        position = 20,
         section = modernChatSection
     )
     @Override

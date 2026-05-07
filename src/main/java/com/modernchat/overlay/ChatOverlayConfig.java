@@ -20,6 +20,8 @@ public interface ChatOverlayConfig
 
     boolean isClickOutsideToClose();
 
+    boolean isPreserveFocusOnOutsideClick();
+
     boolean isShowNotificationBadge();
 
     boolean isAllowClickThrough();
@@ -177,6 +179,11 @@ public interface ChatOverlayConfig
 
         @Override
         public boolean isClickOutsideToClose() {
+            return false;
+        }
+
+        @Override
+        public boolean isPreserveFocusOnOutsideClick() {
             return false;
         }
 

@@ -72,6 +72,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         boolean featureRedesign_Enabled();
         boolean featureRedesign_OpenTabOnIncomingPM();
         boolean featureRedesign_ClickOutsideToClose();
+        boolean featureRedesign_PreserveFocusOnOutsideClick();
         boolean featureRedesign_ShowNotificationBadge();
         boolean featureRedesign_AllowClickThrough();
         boolean featureRedesign_AutoSelectPrivateTab();
@@ -181,6 +182,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public boolean featureRedesign_Enabled() { return cfg.featureRedesign_Enabled(); }
             @Override public boolean featureRedesign_OpenTabOnIncomingPM() { return cfg.featureRedesign_OpenTabOnIncomingPM(); }
             @Override public boolean featureRedesign_ClickOutsideToClose() { return cfg.featureRedesign_ClickOutsideToClose(); }
+            @Override public boolean featureRedesign_PreserveFocusOnOutsideClick() { return cfg.featureRedesign_PreserveFocusOnOutsideClick(); }
             @Override public boolean featureRedesign_ShowNotificationBadge() { return cfg.featureRedesign_ShowNotificationBadge(); }
             @Override public boolean featureRedesign_AllowClickThrough() { return cfg.featureRedesign_AllowClickThrough(); }
             @Override public boolean featureRedesign_AutoSelectPrivateTab() { return cfg.featureRedesign_AutoSelectPrivateTab(); }
@@ -266,6 +268,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public Padding getPadding() { return new Padding(cfg.featureRedesign_Padding()); }
             @Override public boolean isOpenTabOnIncomingPM() { return cfg.featureRedesign_OpenTabOnIncomingPM(); }
             @Override public boolean isClickOutsideToClose() { return cfg.featureRedesign_ClickOutsideToClose(); }
+            @Override public boolean isPreserveFocusOnOutsideClick() { return cfg.featureRedesign_PreserveFocusOnOutsideClick(); }
             @Override public ChatMode getDefaultChatMode() { return cfg.featureRedesign_DefaultChatMode(); }
             @Override public boolean isAutoClosePrivateTab() { return cfg.featureRedesign_AutoClosePrivateTab(); }
             @Override public boolean isGameTabEnabled() { return cfg.featureRedesign_GameTabEnabled(); }
