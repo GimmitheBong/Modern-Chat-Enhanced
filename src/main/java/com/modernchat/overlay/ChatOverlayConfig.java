@@ -184,7 +184,7 @@ public interface ChatOverlayConfig
 
         @Override
         public boolean isPreserveFocusOnOutsideClick() {
-            return false;
+            return true;
         }
 
         @Override
