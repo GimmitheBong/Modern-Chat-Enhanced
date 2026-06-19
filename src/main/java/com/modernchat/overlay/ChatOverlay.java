@@ -293,12 +293,14 @@ public class ChatOverlay extends OverlayPanel
 
         messageContainers.forEach((mode, container) -> {
             container.setChromeEnabled(true);
+            container.setCanShowDecider(c -> !isHidden());
             container.startUp(containerConfig, ChatMode.valueOf(mode));
         });
 
         // Initialize single chat container for combined mode
         allContainer = messageContainerProvider.get();
         allContainer.setChromeEnabled(true);
+        allContainer.setCanShowDecider(c -> !isHidden());
         allContainer.setMaxLines(ALL_TAB_MAX_LINES);
         allContainer.setApplyChannelFilters(true);
         allContainer.startUp(containerConfig, ChatMode.PUBLIC);
@@ -306,10 +308,12 @@ public class ChatOverlay extends OverlayPanel
         // Initialize Game and Trade containers (read-only tabs)
         gameContainer = messageContainerProvider.get();
         gameContainer.setChromeEnabled(true);
+        gameContainer.setCanShowDecider(c -> !isHidden());
         gameContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         tradeContainer = messageContainerProvider.get();
         tradeContainer.setChromeEnabled(true);
+        tradeContainer.setCanShowDecider(c -> !isHidden());
         tradeContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         refreshTabs();
@@ -1769,6 +1773,12 @@ public class ChatOverlay extends OverlayPanel
             return;
 
         this.hidden = hidden;
+        if (messageContainer != null) {
+            messageContainer.setHidden(hidden);
+            if (hidden) {
+                messageContainer.clearChatWidget();
+            }
+        }
 
         if (commandMode && !hidden)
             commandMode = false;
@@ -1776,6 +1786,7 @@ public class ChatOverlay extends OverlayPanel
         if (hidden) {
             unfocusInput();
             resizePanel.resetCursor();
+            lastViewport = null;
         } else {
             focusInput();
         }
@@ -2147,6 +2158,7 @@ public class ChatOverlay extends OverlayPanel
         if (container == null) {
             container = messageContainerProvider.get();
             container.setPrivate(true);
+            container.setCanShowDecider(c -> !isHidden());
             container.startUp(config.getMessageContainerConfig(), ChatMode.PRIVATE);
             privateContainers.put(targetName, container);
 
@@ -2625,6 +2637,18 @@ public class ChatOverlay extends OverlayPanel
             return shouldBlock;
         }
 
+        private boolean isClickThroughMessageArea(MouseEvent e) {
+            return config.isAllowClickThrough()
+                && e.getButton() == MouseEvent.BUTTON1
+                && !client.isMenuOpen()
+                && messageContainer != null
+                && messageContainer.hitAt(new Point(e.getX(), e.getY()))
+                && !tabsBarBounds.contains(e.getPoint())
+                && !inputBounds.contains(e.getPoint())
+                && !filterButtonBounds.contains(e.getPoint())
+                && !reportButtonBounds.contains(e.getPoint());
+        }
+
         @Override public MouseEvent mouseEntered(MouseEvent e) { return e; }
         @Override public MouseEvent mouseExited(MouseEvent e) { return e; }
         @Override public MouseEvent mouseMoved(MouseEvent e) { return e; }
@@ -2788,6 +2812,17 @@ public class ChatOverlay extends OverlayPanel
                     }
                     return false; // RMB falls through for RuneLite menu
                 }
+            }
+
+            if (isClickThroughMessageArea(e)) {
+                if (!config.isPreserveFocusOnOutsideClick()) {
+                    boolean wasFocused = inputFocused;
+                    unfocusInput();
+                    if (wasFocused) {
+                        eventBus.post(new ChatToggleEvent(true));
+                    }
+                }
+                return false;
             }
 
             // Input focus + selection: LMB only
