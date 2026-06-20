@@ -2807,6 +2807,11 @@ public class ChatOverlay extends OverlayPanel
                         dragTabWidth = b.width;
                         dragTabHeight = b.height;
 
+                        // Preserve focus if configured
+                        if (config.isPreserveFocusOnOutsideClick()) {
+                            focusInput();
+                        }
+
                         e.consume();
                         return true;
                     }
@@ -2851,7 +2856,7 @@ public class ChatOverlay extends OverlayPanel
                 }
                 return false;
             } else {
-                if (e.getButton() == MouseEvent.BUTTON1)
+                if (e.getButton() == MouseEvent.BUTTON1 && (!tabsBarBounds.contains(e.getPoint()) || !config.isPreserveFocusOnOutsideClick()))
                     inputFocused = false;
             }
             return false;
