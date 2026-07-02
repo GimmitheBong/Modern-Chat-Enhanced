@@ -1733,6 +1733,18 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         return new Color(0, 200, 255, 200); // Cyan highlight
     }
 
+    @ConfigItem(
+        keyName = Keys.featurePeek_ShowCurrentTab,
+        name = "Show Current Tab in Peek Overlay",
+        description = "When enabled, the Peek Overlay displays messages from the currently selected chat tab instead of a fixed source.",
+        position = 27,
+        section = peekOverlaySection
+    )
+    @Override
+    default boolean featurePeek_ShowCurrentTab() {
+        return false;
+    }
+
     /* ------------ Feature: Commands ------------ */
 
     @ConfigItem(

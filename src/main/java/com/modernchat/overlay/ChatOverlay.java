@@ -158,8 +158,10 @@ public class ChatOverlay extends OverlayPanel
     private static final int ALL_TAB_MAX_LINES = 100;
 
     // Static tab constants
+    private static final String PUBLIC_TAB_KEY = "PUBLIC";
     private static final String GAME_TAB_KEY = "GAME";
     private static final String TRADE_TAB_KEY = "TRADE";
+    @Getter @Nullable private MessageContainer publicContainer = null;
     @Getter @Nullable private MessageContainer gameContainer = null;
     @Getter @Nullable private MessageContainer tradeContainer = null;
 
@@ -316,6 +318,12 @@ public class ChatOverlay extends OverlayPanel
         tradeContainer.setCanShowDecider(c -> !isHidden());
         tradeContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
+        // Initialize Public container (read-only tab)
+        publicContainer = messageContainerProvider.get();
+        publicContainer.setChromeEnabled(true);
+        publicContainer.setCanShowDecider(c -> !isHidden());
+        publicContainer.startUp(containerConfig, ChatMode.PUBLIC);
+
         refreshTabs();
 
         ChatProxy chatProxy = chatProxyProvider.get();
@@ -352,6 +360,10 @@ public class ChatOverlay extends OverlayPanel
         if (tradeContainer != null) {
             tradeContainer.shutDown();
             tradeContainer = null;
+        }
+        if (publicContainer != null) {
+            publicContainer.shutDown();
+            publicContainer = null;
         }
 
         lastViewport = null;
@@ -1142,6 +1154,13 @@ public class ChatOverlay extends OverlayPanel
                 removeTab(TRADE_TAB_KEY, false);
             }
         }
+
+        // Handle Public tab (read-only, static)
+        if (!tabsByKey.containsKey(PUBLIC_TAB_KEY)) {
+            Tab publicTab = new Tab(PUBLIC_TAB_KEY, "Public", false);
+            publicTab.setReadOnly(true);
+            addTab(publicTab);
+        }
     }
 
     private int removeTab(Tab t) {
@@ -1308,6 +1327,9 @@ public class ChatOverlay extends OverlayPanel
         } else if (TRADE_TAB_KEY.equals(key)) {
             selectTradeContainer();
             channelFilterState.setCurrentChatMode(null);
+        } else if (PUBLIC_TAB_KEY.equals(key)) {
+            selectPublicContainer();
+            channelFilterState.setCurrentChatMode(null);
         } else if (t.isPrivate()) {
             selectPrivateContainer(t.getTargetName());
             // Private tabs don't use channel filters, keep current mode
@@ -1375,6 +1397,21 @@ public class ChatOverlay extends OverlayPanel
         }
 
         messageContainer = tradeContainer;
+        messageContainer.setHidden(false);
+        messageContainer.setAlpha(1f);
+    }
+
+    private void selectPublicContainer() {
+        if (publicContainer == null) {
+            log.warn("Public container is null");
+            return;
+        }
+
+        if (messageContainer != null) {
+            messageContainer.setHidden(true);
+        }
+
+        messageContainer = publicContainer;
         messageContainer.setHidden(false);
         messageContainer.setAlpha(1f);
     }
@@ -1507,7 +1544,7 @@ public class ChatOverlay extends OverlayPanel
             }
 
             // Ham (whitelist override) only matters when there's an existing spam classification
-            // to override or an existing ham entry to remove. Hide otherwise — the menu would
+            // to override or an existing ham entry to remove. Hide otherwise â€” the menu would
             // imply functionality that doesn't apply unless the user runs SpamFilterPlugin too.
             if (isMarkedHam) {
                 rootMenu.createMenuEntry(1)
@@ -2000,13 +2037,23 @@ public class ChatOverlay extends OverlayPanel
             }
         }
 
-        // Route to Trade tab if it's a trade message and tab is enabled
+        // Route to Trade tab if it\'s a trade message and tab is enabled
         if (filterType == ChannelFilterType.TRADE && config.isTradeTabEnabled() && tradeContainer != null) {
             tradeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
             routedToSpecificTab = true;
             Tab tradeTab = tabsByKey.get(TRADE_TAB_KEY);
             if (tradeTab != null && messageContainer != tradeContainer && !suppressOtherTabUnread && !collapsed && tradeTab.getUnread() < 99) {
                 tradeTab.incrementUnread();
+            }
+        }
+
+        // Route to Public tab if it\'s a public message and tab is enabled
+        if (filterType == ChannelFilterType.PUBLIC && publicContainer != null) {
+            publicContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+            routedToSpecificTab = true;
+            Tab publicTab = tabsByKey.get(PUBLIC_TAB_KEY);
+            if (publicTab != null && messageContainer != publicContainer && !suppressOtherTabUnread && !collapsed && publicTab.getUnread() < 99) {
+                publicTab.incrementUnread();
             }
         }
 
@@ -2463,6 +2510,8 @@ public class ChatOverlay extends OverlayPanel
         if (allContainer != null) allContainer.dirty();
         if (gameContainer != null) gameContainer.dirty();
         if (tradeContainer != null) tradeContainer.dirty();
+        if (publicContainer != null) publicContainer.dirty();
+        if (publicContainer != null) publicContainer.dirty();
     }
 
     private boolean hasSelection() { return selStart != selEnd; }
