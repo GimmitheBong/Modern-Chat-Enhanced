@@ -2020,7 +2020,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Always push to All container first (receives all messages)
         if (allContainer != null) {
-            allContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+            allContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
         }
 
         // Track if message was routed to any specific tab (to avoid double unread on All tab)
@@ -2029,7 +2029,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Route to Game tab if it's a game message and tab is enabled
         if (filterType == ChannelFilterType.GAME && config.isGameTabEnabled() && gameContainer != null) {
-            gameContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+            gameContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
             routedToSpecificTab = true;
             Tab gameTab = tabsByKey.get(GAME_TAB_KEY);
             if (gameTab != null && messageContainer != gameContainer && !suppressOtherTabUnread && !collapsed && gameTab.getUnread() < 99) {
@@ -2039,7 +2039,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Route to Trade tab if it\'s a trade message and tab is enabled
         if (filterType == ChannelFilterType.TRADE && config.isTradeTabEnabled() && tradeContainer != null) {
-            tradeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+            tradeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
             routedToSpecificTab = true;
             Tab tradeTab = tabsByKey.get(TRADE_TAB_KEY);
             if (tradeTab != null && messageContainer != tradeContainer && !suppressOtherTabUnread && !collapsed && tradeTab.getUnread() < 99) {
@@ -2049,7 +2049,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Route to Public tab if it\'s a public message and tab is enabled
         if (filterType == ChannelFilterType.PUBLIC && publicContainer != null) {
-            publicContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+            publicContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
             routedToSpecificTab = true;
             Tab publicTab = tabsByKey.get(PUBLIC_TAB_KEY);
             if (publicTab != null && messageContainer != publicContainer && !suppressOtherTabUnread && !collapsed && publicTab.getUnread() < 99) {
@@ -2061,7 +2061,7 @@ public class ChatOverlay extends OverlayPanel
         if (mode != ChatMode.PRIVATE && mode != ChatMode.PUBLIC) {
             MessageContainer modeContainer = messageContainers.get(mode.name());
             if (modeContainer != null) {
-                modeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+                modeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
                 routedToSpecificTab = true;
                 Tab modeTab = tabsByKey.get(tabKey(mode));
                 if (modeTab != null && messageContainer != modeContainer && !suppressOtherTabUnread && !collapsed && modeTab.getUnread() < 99) {
@@ -2092,7 +2092,7 @@ public class ChatOverlay extends OverlayPanel
                 Tab pmTab = tabsByKey.get(tabKey);
                 MessageContainer pmContainer = privateContainers.get(targetName);
                 if (pmContainer != null) {
-                    pmContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+                    pmContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
                     routedToSpecificTab = true;
                     // Update tab icon from incoming PM sender
                     if (pmTab != null && senderIconId >= 0 && type != ChatMessageType.PRIVATECHATOUT) {
@@ -2109,7 +2109,7 @@ public class ChatOverlay extends OverlayPanel
                     if (senderIconId >= 0) {
                         pair.getLeft().setIconId(senderIconId);
                     }
-                    pair.getRight().pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed);
+                    pair.getRight().pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderIconId);
                     routedToSpecificTab = true;
                     if (messageContainer != pair.getRight() && !suppressOtherTabUnread && !collapsed && pair.getLeft().getUnread() < 99) {
                         pair.getLeft().incrementUnread();

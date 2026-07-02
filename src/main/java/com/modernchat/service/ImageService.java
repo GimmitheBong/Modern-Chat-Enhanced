@@ -3,7 +3,6 @@ package com.modernchat.service;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.IndexedSprite;
-import net.runelite.client.game.SpriteManager;
 import net.runelite.client.util.ImageUtil;
 
 import javax.annotation.Nullable;
@@ -21,11 +20,10 @@ public class ImageService implements ChatService
 {
     public static final Pattern IMG_TAG = Pattern.compile(".*?<img=(\\d+)>\\s*(?:<[^>]+>\\s*)*([^:<>]+?)\\s*:", Pattern.CASE_INSENSITIVE);
 
-    private final Map<Integer, Image> modIconCache = new ConcurrentHashMap<>();
+    private final Map<Integer, ModIconCacheEntry> modIconCache = new ConcurrentHashMap<>();
     private BufferedImage filterIcon;
 
     @Inject private Client client;
-    @Inject private SpriteManager spriteManager;
 
     @Override
     public void startUp() {
@@ -51,28 +49,30 @@ public class ImageService implements ChatService
     public @Nullable Image getModIcon(int id) {
         if (id < 0)
             return null;
-        Image cached = modIconCache.get(id);
-        if (cached != null)
-            return cached;
 
         IndexedSprite[] icons = client.getModIcons();
-        if (icons == null || id >= icons.length)
+        if (icons == null || id >= icons.length || icons[id] == null)
             return null;
 
-        BufferedImage img = indexedToBufferedImage(icons[id]);
-        modIconCache.put(id, img);
+        IndexedSprite sprite = icons[id];
+        ModIconCacheEntry cached = modIconCache.get(id);
+        if (cached != null && cached.getSource() == sprite)
+            return cached.getImage();
+
+        BufferedImage img = indexedToBufferedImage(sprite);
+        if (img == null)
+            return null;
+
+        modIconCache.put(id, new ModIconCacheEntry(sprite, img));
         return img;
     }
 
     public boolean isValidModIcon(int icon) {
         if (icon < 0)
             return false;
-        Image cached = modIconCache.get(icon);
-        if (cached != null)
-            return true;
 
         IndexedSprite[] icons = client.getModIcons();
-        return icons != null && icon < icons.length;
+        return icons != null && icon < icons.length && icons[icon] != null;
     }
 
     public static BufferedImage indexedToBufferedImage(IndexedSprite s) {
@@ -101,5 +101,27 @@ public class ImageService implements ChatService
         BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         bi.setRGB(0, 0, w, h, out, 0, w);
         return bi;
+    }
+
+    private static final class ModIconCacheEntry
+    {
+        private final IndexedSprite source;
+        private final Image image;
+
+        private ModIconCacheEntry(IndexedSprite source, Image image)
+        {
+            this.source = source;
+            this.image = image;
+        }
+
+        private IndexedSprite getSource()
+        {
+            return source;
+        }
+
+        private Image getImage()
+        {
+            return image;
+        }
     }
 }

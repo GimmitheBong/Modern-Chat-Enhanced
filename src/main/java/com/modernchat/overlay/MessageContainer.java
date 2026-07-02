@@ -258,20 +258,7 @@ public class MessageContainer extends Overlay
                     for (TextSegment seg : vl.getSegs()) {
                         if (seg instanceof ImageSegment) {
                             ImageSegment imageSeg = (ImageSegment) seg;
-                            Image icon = imageSeg.getImageCache();
-
-                            if (icon == null && imageSeg.isAllowRetryImage()) {
-                                icon = imageService.getModIcon(imageSeg.getId());
-                                if (icon != null) {
-                                    imageSeg.setImageCache(icon);
-                                } else {
-                                    imageSeg.setAllowRetryImage(false);
-                                    dx += fm.getHeight();
-                                    dirty();
-                                    if (dx > right) break;
-                                    continue;
-                                }
-                            }
+                            Image icon = resolveModIcon(imageSeg);
 
                             // Draw or reserve fallback width if still missing
                             int iw = icon != null ? icon.getWidth(null) : fm.getHeight();
@@ -492,7 +479,8 @@ public class MessageContainer extends Overlay
             targetName,
             line.getPrefix(),
             line.getDuplicateKey(),
-            line.isCollapsed());
+            line.isCollapsed(),
+            line.getSenderIconId());
     }
 
     public void pushLine(
@@ -518,6 +506,21 @@ public class MessageContainer extends Overlay
         String duplicateKey,
         boolean collapsed
     ) {
+        pushLine(s, type, timestamp, sender, receiver, targetName, prefix, duplicateKey, collapsed, -1);
+    }
+
+    public void pushLine(
+        String s,
+        ChatMessageType type,
+        long timestamp,
+        String sender,
+        String receiver,
+        String targetName,
+        String prefix,
+        String duplicateKey,
+        boolean collapsed,
+        int senderIconId
+    ) {
         type = type == null ? ChatMessageType.GAMEMESSAGE : type;
 
         // Always use default color as base (for sender name, etc.)
@@ -533,7 +536,7 @@ public class MessageContainer extends Overlay
             }
         }
 
-        RichLine rl = parseRich(messageToRender, baseColor == null ? Color.WHITE : baseColor, type, timestamp, prefix, sender);
+        RichLine rl = parseRich(messageToRender, baseColor == null ? Color.WHITE : baseColor, type, timestamp, prefix, sender, senderIconId);
         rl.setType(type);
         rl.setSender(sender);
         rl.setReceiver(receiver);
@@ -587,7 +590,7 @@ public class MessageContainer extends Overlay
         return forceTag + message + endTag;
     }
 
-    private RichLine parseRich(String s, Color base, ChatMessageType type, long timestamp, String prefix, String sender) {
+    private RichLine parseRich(String s, Color base, ChatMessageType type, long timestamp, String prefix, String sender, int senderIconId) {
         RichLine out = new RichLine();
         out.setTimestamp(timestamp);
         if (s == null) return out;
@@ -606,6 +609,10 @@ public class MessageContainer extends Overlay
         out.getSegs().add(new PrefixSegment(StringUtil.isNullOrEmpty(prefix)
             ? ChatUtil.getPrefix(type)
             : prefix, prefixColor.getAlpha() > 0 ? prefixColor : cur));
+
+        if (senderIconId >= 0 && !StringUtil.isNullOrEmpty(sender)) {
+            out.getSegs().add(new ImageSegment(senderIconId, cur));
+        }
 
         for (int i = 0; i < s.length(); ) {
             char ch = s.charAt(i);
@@ -741,15 +748,7 @@ public class MessageContainer extends Overlay
             if (s instanceof ImageSegment) {
                 ImageSegment img = (ImageSegment) s;
 
-                Image icon = img.getImageCache();
-                if (icon == null && img.isAllowRetryImage()) {
-                    icon = imageService.getModIcon(img.getId());
-                    if (icon != null) {
-                        img.setImageCache(icon);
-                    } else {
-                        img.setAllowRetryImage(false);
-                    }
-                }
+                Image icon = resolveModIcon(img);
 
                 int iw = (icon != null) ? icon.getWidth(null) : fm.getHeight();
 
@@ -853,6 +852,14 @@ public class MessageContainer extends Overlay
         if (!cur.getSegs().isEmpty())
             out.add(cur);
         return out;
+    }
+
+    private @Nullable Image resolveModIcon(ImageSegment img) {
+        Image icon = imageService.getModIcon(img.getId());
+        if (icon != null && icon != img.getImageCache()) {
+            img.setImageCache(icon);
+        }
+        return icon != null ? icon : img.getImageCache();
     }
 
     private int fitCharsForWidth(FontMetrics fm, String s, int start, int remainingWidth) {
