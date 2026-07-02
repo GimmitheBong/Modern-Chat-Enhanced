@@ -285,8 +285,13 @@ public class ChatUtil
 
         ChatMessageType type = e.getType();
         String originalMsg = e.getMessage();
-        // Use filtered message if provided, otherwise use original
-        String msg = filteredMessage != null ? filteredMessage : originalMsg;
+        String processedMsg = e.getMessageNode() != null
+            ? e.getMessageNode().getValue()
+            : null;
+        boolean messageWasFiltered = filteredMessage != null && originalMsg != null && !filteredMessage.equals(originalMsg);
+        String msg = !messageWasFiltered && processedMsg != null
+            ? processedMsg
+            : filteredMessage != null ? filteredMessage : originalMsg;
         String[] params = msg.split("\\|", 3);
         String receiverName = senderReceiver.getReceiverName();
         String senderName = senderReceiver.getSenderName();
