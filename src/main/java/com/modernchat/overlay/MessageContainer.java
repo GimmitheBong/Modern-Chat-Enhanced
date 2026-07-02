@@ -480,6 +480,7 @@ public class MessageContainer extends Overlay
             line.getPrefix(),
             line.getDuplicateKey(),
             line.isCollapsed(),
+            line.getSenderRankIconId(),
             line.getSenderIconId());
     }
 
@@ -521,6 +522,22 @@ public class MessageContainer extends Overlay
         boolean collapsed,
         int senderIconId
     ) {
+        pushLine(s, type, timestamp, sender, receiver, targetName, prefix, duplicateKey, collapsed, -1, senderIconId);
+    }
+
+    public void pushLine(
+        String s,
+        ChatMessageType type,
+        long timestamp,
+        String sender,
+        String receiver,
+        String targetName,
+        String prefix,
+        String duplicateKey,
+        boolean collapsed,
+        int senderRankIconId,
+        int senderIconId
+    ) {
         type = type == null ? ChatMessageType.GAMEMESSAGE : type;
 
         // Always use default color as base (for sender name, etc.)
@@ -536,7 +553,7 @@ public class MessageContainer extends Overlay
             }
         }
 
-        RichLine rl = parseRich(messageToRender, baseColor == null ? Color.WHITE : baseColor, type, timestamp, prefix, sender, senderIconId);
+        RichLine rl = parseRich(messageToRender, baseColor == null ? Color.WHITE : baseColor, type, timestamp, prefix, sender, senderRankIconId, senderIconId);
         rl.setType(type);
         rl.setSender(sender);
         rl.setReceiver(receiver);
@@ -590,7 +607,7 @@ public class MessageContainer extends Overlay
         return forceTag + message + endTag;
     }
 
-    private RichLine parseRich(String s, Color base, ChatMessageType type, long timestamp, String prefix, String sender, int senderIconId) {
+    private RichLine parseRich(String s, Color base, ChatMessageType type, long timestamp, String prefix, String sender, int senderRankIconId, int senderIconId) {
         RichLine out = new RichLine();
         out.setTimestamp(timestamp);
         if (s == null) return out;
@@ -609,6 +626,10 @@ public class MessageContainer extends Overlay
         out.getSegs().add(new PrefixSegment(StringUtil.isNullOrEmpty(prefix)
             ? ChatUtil.getPrefix(type)
             : prefix, prefixColor.getAlpha() > 0 ? prefixColor : cur));
+
+        if (senderRankIconId >= 0 && !StringUtil.isNullOrEmpty(sender)) {
+            out.getSegs().add(new ImageSegment(senderRankIconId, cur));
+        }
 
         if (senderIconId >= 0 && !StringUtil.isNullOrEmpty(sender)) {
             out.getSegs().add(new ImageSegment(senderIconId, cur));

@@ -20,6 +20,8 @@ public class MessageLine
     @Nullable String duplicateKey;
     /** True if this message has a collapse count suffix like " (2)" */
     boolean collapsed;
+    /** Friends chat rank icon ID from ChatIconManager, or -1 if none */
+    int senderRankIconId;
     /** Icon ID from the sender's name tag (e.g. ironman icon), or -1 if none */
     int senderIconId;
 }

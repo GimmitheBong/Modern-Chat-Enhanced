@@ -7,12 +7,16 @@ import com.modernchat.draw.RichLine;
 import com.modernchat.draw.TextSegment;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.FriendsChatManager;
+import net.runelite.api.FriendsChatMember;
+import net.runelite.api.FriendsChatRank;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MessageNode;
 import net.runelite.api.Player;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.widgets.Widget;
 import lombok.Value;
+import net.runelite.client.game.ChatIconManager;
 import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.Text;
 
@@ -234,6 +238,10 @@ public class ChatUtil
         return createMessageLine(e, client, requireLocalPlayer, null);
     }
 
+    public static @Nullable MessageLine createMessageLine(ChatMessage e, Client client, boolean requireLocalPlayer, @Nullable String filteredMessage) {
+        return createMessageLine(e, client, requireLocalPlayer, filteredMessage, null);
+    }
+
     /** Pattern to detect ChatFilterPlugin's collapse suffix like " (2)", " (15)" etc. */
     private static final Pattern COLLAPSE_PATTERN = Pattern.compile(" \\(\\d+\\)$");
 
@@ -258,7 +266,7 @@ public class ChatUtil
      * @param requireLocalPlayer whether to require local player info
      * @param filteredMessage optional filtered message text (from chat filter plugins), or null to use original
      */
-    public static @Nullable MessageLine createMessageLine(ChatMessage e, Client client, boolean requireLocalPlayer, @Nullable String filteredMessage) {
+    public static @Nullable MessageLine createMessageLine(ChatMessage e, Client client, boolean requireLocalPlayer, @Nullable String filteredMessage, @Nullable ChatIconManager chatIconManager) {
         Player localPlayer = client.getLocalPlayer();
         if (localPlayer == null && requireLocalPlayer)
             return null;
@@ -283,6 +291,7 @@ public class ChatUtil
         String receiverName = senderReceiver.getReceiverName();
         String senderName = senderReceiver.getSenderName();
         int senderIconId = senderReceiver.getSenderIconId();
+        int senderRankIconId = getFriendsChatRankIconId(type, senderName, client, chatIconManager);
         String prefix = ChatUtil.getCustomPrefix(e);
 
         if (type == ChatMessageType.DIALOG) {
@@ -318,7 +327,34 @@ public class ChatUtil
             && COLLAPSE_PATTERN.matcher(filteredMessage).find()
             && !originalMsg.equals(filteredMessage); // only if filtered differs from original
 
-        return new MessageLine(builder.build(), type, timestamp, senderName, receiverName, prefix, duplicateKey, collapsed, senderIconId);
+        return new MessageLine(builder.build(), type, timestamp, senderName, receiverName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+    }
+
+    private static int getFriendsChatRankIconId(ChatMessageType type, @Nullable String senderName, Client client, @Nullable ChatIconManager chatIconManager) {
+        if (chatIconManager == null || StringUtil.isNullOrEmpty(senderName)) {
+            return -1;
+        }
+
+        if (type != ChatMessageType.PUBLICCHAT && type != ChatMessageType.MODCHAT && type != ChatMessageType.FRIENDSCHAT) {
+            return -1;
+        }
+
+        FriendsChatManager friendsChatManager = client.getFriendsChatManager();
+        if (friendsChatManager == null) {
+            return -1;
+        }
+
+        FriendsChatMember friendsChatMember = friendsChatManager.findByName(senderName);
+        if (friendsChatMember == null) {
+            return -1;
+        }
+
+        FriendsChatRank rank = friendsChatMember.getRank();
+        if (rank == null || rank == FriendsChatRank.UNRANKED) {
+            return -1;
+        }
+
+        return chatIconManager.getIconNumber(rank);
     }
 
     public static String getPrefix(ChatMessageType type) {
@@ -397,6 +433,7 @@ public class ChatUtil
             "", // Prefix is not directly stored in RichLine, using empty string for now
             rl.getDuplicateKey(),
             rl.isCollapsed(),
+            -1,
             senderIcon
         );
     }
