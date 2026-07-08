@@ -92,10 +92,9 @@ import static com.modernchat.common.NotifyType.MESSAGE_RECEIVED;
 
 @Slf4j
 @PluginDescriptor(
-	name = "Modern Chat",
-	description = "A chat plugin for RuneLite that modernizes the chat experience with additional features.",
-	tags = {"chat", "modern", "quality of life"}/*,
-	conflicts = "Key Remapping"*/
+		name = "Modern Chat Enhanced",
+		description = "A maintained fork of Modern Chat with additional features, bug fixes, and quality-of-life improvements.",
+		tags = {"chat", "modern", "quality of life"}
 )
 public class ModernChatPlugin extends Plugin {
 
