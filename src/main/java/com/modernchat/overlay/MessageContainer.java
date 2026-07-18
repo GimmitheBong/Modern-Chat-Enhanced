@@ -97,7 +97,7 @@ public class MessageContainer extends Overlay
     protected FontStyle lineFontStyle = null;
 
     // Viewport and scrolling
-    @Getter protected Rectangle lastViewport = null;
+    @Getter protected volatile Rectangle lastViewport = null;
     protected final Rectangle msgViewport = new Rectangle();
     @Getter @Setter protected int scrollOffsetPx = 0;
     protected int contentHeightPx = 0;
@@ -174,6 +174,7 @@ public class MessageContainer extends Overlay
 
         // Cache the viewport for wheel/drag hit-tests
         lastViewport = calculateViewPort(vp);
+        if (lastViewport == null) return null;
 
         // Padding and layout
         final Padding pad = config.getPadding();
