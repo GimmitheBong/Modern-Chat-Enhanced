@@ -209,7 +209,7 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
     @ConfigItem(
         keyName = Keys.featureRedesign_PreserveFocusOnOutsideClick,
         name = "Preserve Focus On Outside Click",
-        description = "Keep chat input focused when clicking outside the chat area (only applies when 'Click Outside Closes' is disabled)",
+        description = "Keep chat input focused when clicking away from the input box, both within the chat area (including click-through clicks) and outside it (outside clicks close the chat instead when 'Click Outside Closes' is enabled)",
         position = 8,
         section = modernChatSection
     )
