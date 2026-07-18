@@ -22,3 +22,4 @@ dev.gradle
 .codex/hooks.json
 .linked-*
 .mcp.json
+docs/ARCHITECTURE.md
