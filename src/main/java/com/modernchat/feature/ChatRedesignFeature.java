@@ -18,6 +18,7 @@ import com.modernchat.event.LegacyChatVisibilityChangeEvent;
 import com.modernchat.event.MessageLayerClosedEvent;
 import com.modernchat.event.MessageLayerOpenedEvent;
 import com.modernchat.event.ModernChatVisibilityChangeEvent;
+import com.modernchat.event.RuneLiteChatMessageUpdatedEvent;
 import com.modernchat.overlay.ChannelFilterState;
 import com.modernchat.overlay.ChatOverlay;
 import com.modernchat.overlay.ChatOverlayConfig;
@@ -25,6 +26,7 @@ import com.modernchat.overlay.MessageContainer;
 import com.modernchat.overlay.MessageContainerConfig;
 import com.modernchat.service.MessageFilterService;
 import com.modernchat.service.MessageService;
+import com.modernchat.service.RuneLiteFormattedMessageService;
 import com.modernchat.util.ChatUtil;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -154,6 +156,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
     @Inject private WidgetBucket widgetBucket;
     @Inject private MessageService messageService;
     @Inject private MessageFilterService messageFilterService;
+    @Inject private RuneLiteFormattedMessageService runeLiteFormattedMessageService;
     @Inject private ChatIconManager chatIconManager;
     @Inject private NotificationService notificationService;
     @Inject private ChatOverlay overlay;
@@ -395,6 +398,11 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         clientThread.invoke(() -> {
             if (!overlay.isLegacyShowing())
                 overlay.hideLegacyChat(false);
+            // Also covers enabling/reloading the plugin after the login and widget events have
+            // already fired. The overlay queues the desired size until it is safe to apply.
+            if (isEnabled()) {
+                loadChatSize();
+            }
         });
     }
 
@@ -409,32 +417,59 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         clientThread.invokeAtTickEnd(this::showLegacyChatAndHideOverlay);
     }
 
-    private void loadChatSize() {
-        overlay.setDesiredChatSize(
-            configManager.getRSProfileConfiguration(GROUP, CHAT_WIDTH),
-            configManager.getRSProfileConfiguration(GROUP, CHAT_HEIGHT));
+    private boolean loadChatSize() {
+        String savedWidth = configManager.getRSProfileConfiguration(GROUP, CHAT_WIDTH);
+        String savedHeight = configManager.getRSProfileConfiguration(GROUP, CHAT_HEIGHT);
+        if (savedWidth == null || savedHeight == null) {
+            // Do not retain dimensions from the previous account/profile. Keep this unresolved so
+            // widget/profile/visibility events can still retry if the profile is merely loading.
+            overlay.setDesiredChatSizeToDefault();
+            sizeApplied = false;
+            return false;
+        }
+
+        try {
+            int width = Integer.parseInt(savedWidth);
+            int height = Integer.parseInt(savedHeight);
+            if (width <= 0 || height <= 0) {
+                overlay.setDesiredChatSizeToDefault();
+                sizeApplied = false;
+                return false;
+            }
+
+            // ChatOverlay retains the desired size if the widgets are not ready yet. Its resize
+            // path also defers applying it while legacy/system chat is active.
+            overlay.setDesiredChatSize(width, height);
+            sizeApplied = true;
+            return true;
+        } catch (NumberFormatException e) {
+            log.debug("Unable to parse saved chat size: {}x{} - {}", savedWidth, savedHeight, e.getMessage());
+            overlay.setDesiredChatSizeToDefault();
+            sizeApplied = false;
+            return false;
+        }
     }
 
     @Subscribe
     public void onModernChatVisibilityChangeEvent(ModernChatVisibilityChangeEvent e) {
-        // load on the first show to avoid legacy chat size bricking the original view
+        // Fallback for profiles whose dimensions were unavailable during login/widget setup.
         if (e.isVisible() && !sizeApplied)
             loadChatSize();
     }
 
     @Subscribe
     public void onChatResizedEvent(ChatResizedEvent e) {
+        sizeApplied = true;
         configManager.setRSProfileConfiguration(GROUP, CHAT_WIDTH, e.getWidth());
         configManager.setRSProfileConfiguration(GROUP, CHAT_HEIGHT, e.getHeight());
     }
 
     @Subscribe
     public void onProfileChanged(ProfileChanged e) {
-        // When the profile changes, we need to refresh
-        if (!overlay.isHidden())
-            loadChatSize();
-        else
-            sizeApplied = false;
+        // Load the new profile even while Modern Chat is hidden so the peek overlay gets the
+        // correct bounds. ChatOverlay safely queues it if legacy/system chat is currently active.
+        sizeApplied = false;
+        loadChatSize();
     }
 
     @Subscribe
@@ -496,8 +531,8 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             clientThread.invoke(() -> {
                 if (!overlay.isLegacyShowing()) {
                     overlay.hideLegacyChat(false);
-                    loadChatSize();
                 }
+                loadChatSize();
             });
         }
     }
@@ -517,14 +552,20 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
 
             overlay.refreshTabs();
 
-            clientThread.invokeAtTickEnd(() -> overlay.selectDefaultTab());
+            sizeApplied = false;
+            clientThread.invokeAtTickEnd(() -> {
+                loadChatSize();
+                overlay.selectDefaultTab();
 
-            if (mainConfig.featureToggle_StartHidden())
-                clientThread.invokeAtTickEnd(() -> overlay.setHidden(true));
+                if (mainConfig.featureToggle_StartHidden()) {
+                    overlay.setHidden(true);
+                }
+            });
 
             loggedIn = true;
         }
         else if (e.getGameState() == GameState.LOGIN_SCREEN || e.getGameState() == GameState.HOPPING) {
+            sizeApplied = false;
             loggedIn = false;
         }
     }
@@ -544,7 +585,9 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         }
 
         // Use the filtered message text
-        MessageLine line = ChatUtil.createMessageLine(e, client, false, filteredMessage, chatIconManager);
+        String formattedMessage = runeLiteFormattedMessageService.observe(e);
+        MessageLine line = ChatUtil.createMessageLine(
+            e, client, false, filteredMessage, chatIconManager, formattedMessage);
         if (line == null) {
             log.error("Failed to parse chat message event: {}", e);
             return; // Ignore empty messages
@@ -557,6 +600,11 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
 
         log.debug("Chat message received: {}", line);
         overlay.addMessage(line);
+    }
+
+    @Subscribe
+    public void onRuneLiteChatMessageUpdatedEvent(RuneLiteChatMessageUpdatedEvent e) {
+        overlay.replaceMessageBody(e.getMessageId(), e.getFormattedBody());
     }
 
     @Subscribe

@@ -15,6 +15,10 @@ public final class RichLine
     private String sender;
     private String receiver;
     private String targetName;
+    private String prefix;
+    private int senderRankIconId = -1;
+    private int senderIconId = -1;
+    private int messageId = -1;
     /** Key for duplicate detection: name + original message */
     private String duplicateKey;
     /** True if this message has a collapse count suffix like " (2)" */

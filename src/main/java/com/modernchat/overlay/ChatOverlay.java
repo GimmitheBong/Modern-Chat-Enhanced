@@ -18,6 +18,7 @@ import com.modernchat.draw.RichLine;
 import com.modernchat.draw.RowHit;
 import com.modernchat.draw.Tab;
 import com.modernchat.draw.TextSegment;
+import com.modernchat.draw.UsernameHit;
 import com.modernchat.event.ChatMenuOpenedEvent;
 import com.modernchat.event.ChatResizedEvent;
 import com.modernchat.event.ChatToggleEvent;
@@ -32,6 +33,7 @@ import com.modernchat.service.FilterService;
 import com.modernchat.service.FontService;
 import com.modernchat.service.ImageService;
 import com.modernchat.service.MessageService;
+import com.modernchat.service.PlayerMenuService;
 import com.modernchat.service.SpamFilterService;
 import com.modernchat.util.ChatUtil;
 import com.modernchat.util.ClientUtil;
@@ -106,9 +108,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -126,6 +130,7 @@ public class ChatOverlay extends OverlayPanel
     @Inject private NotificationService notificationService;
     @Inject private FilterService filterService;
     @Inject private MessageService messageService;
+    @Inject private PlayerMenuService playerMenuService;
     @Inject private ImageService imageService;
     @Inject private SpamFilterService spamFilterService;
     @Inject @Getter private ResizePanel resizePanel;
@@ -203,6 +208,9 @@ public class ChatOverlay extends OverlayPanel
 
     @Getter private int desiredChatWidth;
     @Getter private int desiredChatHeight;
+    private volatile boolean persistDesiredChatSize = true;
+    private static final int DEFAULT_CHAT_WIDTH = 519;
+    private static final int DEFAULT_CHAT_HEIGHT = 165;
 
     // Tab drag state
     private static final int DRAG_THRESHOLD_PX = 3;
@@ -1505,6 +1513,11 @@ public class ChatOverlay extends OverlayPanel
 
         Menu rootMenu = client.getMenu();
 
+        UsernameHit usernameHit = messageContainer.usernameAt(mouse);
+        if (usernameHit != null) {
+            playerMenuService.addMenuEntries(usernameHit);
+        }
+
         if (messageContainer != null && messageContainer.hitAt(mouse)) {
             rootMenu.createMenuEntry(1)
                 .setOption("Clear messages")
@@ -1981,7 +1994,8 @@ public class ChatOverlay extends OverlayPanel
             line.getDuplicateKey(),
             line.isCollapsed(),
             line.getSenderRankIconId(),
-            line.getSenderIconId());
+            line.getSenderIconId(),
+            line.getMessageId());
     }
 
     public void addMessage(
@@ -1992,7 +2006,7 @@ public class ChatOverlay extends OverlayPanel
         String receiverName,
         String prefix
     ) {
-        addMessage(line, type, timestamp, senderName, receiverName, prefix, null, false, -1, -1);
+        addMessage(line, type, timestamp, senderName, receiverName, prefix, null, false, -1, -1, -1);
     }
 
     public void addMessage(
@@ -2005,7 +2019,8 @@ public class ChatOverlay extends OverlayPanel
         String duplicateKey,
         boolean collapsed,
         int senderRankIconId,
-        int senderIconId
+        int senderIconId,
+        int messageId
     ) {
         ChatMode mode = ChatUtil.toChatMode(type);
         String targetName = type == ChatMessageType.PRIVATECHATOUT || type == ChatMessageType.FRIENDNOTIFICATION
@@ -2022,7 +2037,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Always push to All container first (receives all messages)
         if (allContainer != null) {
-            allContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+            allContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
         }
 
         // Track if message was routed to any specific tab (to avoid double unread on All tab)
@@ -2031,7 +2046,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Route to Game tab if it's a game message and tab is enabled
         if (filterType == ChannelFilterType.GAME && config.isGameTabEnabled() && gameContainer != null) {
-            gameContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+            gameContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
             routedToSpecificTab = true;
             Tab gameTab = tabsByKey.get(GAME_TAB_KEY);
             if (gameTab != null && messageContainer != gameContainer && !suppressOtherTabUnread && !collapsed && gameTab.getUnread() < 99) {
@@ -2041,7 +2056,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Route to Trade tab if it\'s a trade message and tab is enabled
         if (filterType == ChannelFilterType.TRADE && config.isTradeTabEnabled() && tradeContainer != null) {
-            tradeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+            tradeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
             routedToSpecificTab = true;
             Tab tradeTab = tabsByKey.get(TRADE_TAB_KEY);
             if (tradeTab != null && messageContainer != tradeContainer && !suppressOtherTabUnread && !collapsed && tradeTab.getUnread() < 99) {
@@ -2051,7 +2066,7 @@ public class ChatOverlay extends OverlayPanel
 
         // Route to Public tab if it\'s a public message and tab is enabled
         if (filterType == ChannelFilterType.PUBLIC && publicContainer != null) {
-            publicContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+            publicContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
             routedToSpecificTab = true;
             Tab publicTab = tabsByKey.get(PUBLIC_TAB_KEY);
             if (publicTab != null && messageContainer != publicContainer && !suppressOtherTabUnread && !collapsed && publicTab.getUnread() < 99) {
@@ -2063,7 +2078,7 @@ public class ChatOverlay extends OverlayPanel
         if (mode != ChatMode.PRIVATE && mode != ChatMode.PUBLIC) {
             MessageContainer modeContainer = messageContainers.get(mode.name());
             if (modeContainer != null) {
-                modeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+                modeContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
                 routedToSpecificTab = true;
                 Tab modeTab = tabsByKey.get(tabKey(mode));
                 if (modeTab != null && messageContainer != modeContainer && !suppressOtherTabUnread && !collapsed && modeTab.getUnread() < 99) {
@@ -2094,7 +2109,7 @@ public class ChatOverlay extends OverlayPanel
                 Tab pmTab = tabsByKey.get(tabKey);
                 MessageContainer pmContainer = privateContainers.get(targetName);
                 if (pmContainer != null) {
-                    pmContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+                    pmContainer.pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
                     routedToSpecificTab = true;
                     // Update tab icon from incoming PM sender
                     if (pmTab != null && senderIconId >= 0 && type != ChatMessageType.PRIVATECHATOUT) {
@@ -2111,7 +2126,7 @@ public class ChatOverlay extends OverlayPanel
                     if (senderIconId >= 0) {
                         pair.getLeft().setIconId(senderIconId);
                     }
-                    pair.getRight().pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+                    pair.getRight().pushLine(line, type, timestamp, senderName, receiverName, targetName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
                     routedToSpecificTab = true;
                     if (messageContainer != pair.getRight() && !suppressOtherTabUnread && !collapsed && pair.getLeft().getUnread() < 99) {
                         pair.getLeft().incrementUnread();
@@ -2130,6 +2145,23 @@ public class ChatOverlay extends OverlayPanel
         if (allTab != null && messageContainer != allContainer && shouldMarkAllUnread && allTab.getUnread() < 99) {
             allTab.incrementUnread();
         }
+    }
+
+    /** Replace a RuneLite-formatted message in every tab that received the original row. */
+    public boolean replaceMessageBody(int messageId, String messageBody) {
+        Set<MessageContainer> containers = new HashSet<>();
+        containers.addAll(messageContainers.values());
+        containers.addAll(privateContainers.values());
+        if (allContainer != null) containers.add(allContainer);
+        if (publicContainer != null) containers.add(publicContainer);
+        if (gameContainer != null) containers.add(gameContainer);
+        if (tradeContainer != null) containers.add(tradeContainer);
+
+        boolean replaced = false;
+        for (MessageContainer container : containers) {
+            replaced |= container.replaceLineBody(messageId, messageBody);
+        }
+        return replaced;
     }
 
     public boolean isPrivateTabOpen(String targetName) {
@@ -2308,18 +2340,32 @@ public class ChatOverlay extends OverlayPanel
     }
 
     public void setDesiredChatSize(int newW, int newH) {
+        setDesiredChatSize(newW, newH, true);
+    }
+
+    private void setDesiredChatSize(int newW, int newH, boolean persist) {
         if (newW <= 0 || newH <= 0) return;
 
         desiredChatWidth = newW;
         desiredChatHeight = newH;
+        persistDesiredChatSize = persist;
         clientThread.invoke(() -> resizeChatbox(desiredChatWidth, desiredChatHeight));
+    }
+
+    public void setDesiredChatSizeToDefault() {
+        // A missing/unavailable profile should render at the default size without creating or
+        // overwriting that profile's saved dimensions. A later user resize or saved-size load
+        // switches persistence back on.
+        setDesiredChatSize(DEFAULT_CHAT_WIDTH, DEFAULT_CHAT_HEIGHT, false);
     }
 
     private void resizeChatbox(int width, int height) {
         if (width <= 0 || height <= 0)
             return;
 
-        if (lastViewport != null && (width == lastViewport.width && height == lastViewport.height))
+        // Legacy chat and system input widgets rely on the game's default chatbox dimensions.
+        // Keep the desired Modern Chat size queued until those widgets close.
+        if (legacyShowing || ClientUtil.isSystemWidgetActive(client))
             return;
 
         Widget chatViewport = widgetBucket.getChatboxViewportWidget();
@@ -2329,6 +2375,19 @@ public class ChatOverlay extends OverlayPanel
         Widget chatboxParent = widgetBucket.getChatParentWidget();
         if (chatboxParent == null)
             return;
+
+        // Compare the live widgets rather than lastViewport. The chatbox widgets are rebuilt on
+        // login/hop, while lastViewport can still contain the desired dimensions from the prior
+        // widget and would otherwise incorrectly suppress this resize.
+        if (chatViewport.getOriginalWidth() == width
+            && chatViewport.getOriginalHeight() == height
+            && chatboxParent.getOriginalWidth() == width
+            && chatboxParent.getOriginalHeight() == height
+            && chatboxParent.getWidthMode() == WidgetSizeMode.ABSOLUTE
+            && chatboxParent.getHeightMode() == WidgetSizeMode.ABSOLUTE)
+        {
+            return;
+        }
 
         chatViewport.setOriginalHeight(height);
         chatViewport.setOriginalWidth(width);
@@ -2346,7 +2405,9 @@ public class ChatOverlay extends OverlayPanel
         if (messageContainer != null)
             messageContainer.dirty();
 
-        eventBus.post(new ChatResizedEvent(width, height));
+        if (persistDesiredChatSize) {
+            eventBus.post(new ChatResizedEvent(width, height));
+        }
     }
 
     public void resetChatbox() {
@@ -2357,8 +2418,8 @@ public class ChatOverlay extends OverlayPanel
         if (resetSize) {
             Widget chatViewport = widgetBucket.getChatboxViewportWidget();
             if (chatViewport != null && !chatViewport.isHidden()) {
-                chatViewport.setOriginalHeight(165);
-                chatViewport.setOriginalWidth(519);
+                chatViewport.setOriginalHeight(DEFAULT_CHAT_HEIGHT);
+                chatViewport.setOriginalWidth(DEFAULT_CHAT_WIDTH);
                 chatViewport.revalidate();
             }
         }
@@ -2906,9 +2967,12 @@ public class ChatOverlay extends OverlayPanel
                     return true;
                 }
                 return false;
-            } else {
-                if (e.getButton() == MouseEvent.BUTTON1 && (!tabsBarBounds.contains(e.getPoint()) || !config.isPreserveFocusOnOutsideClick()))
-                    inputFocused = false;
+            } else if (e.getButton() == MouseEvent.BUTTON1 && !config.isPreserveFocusOnOutsideClick()) {
+                boolean wasFocused = inputFocused;
+                unfocusInput();
+                if (wasFocused) {
+                    eventBus.post(new ChatToggleEvent(true));
+                }
             }
             return false;
         }

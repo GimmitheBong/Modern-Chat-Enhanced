@@ -12,6 +12,7 @@ import com.modernchat.draw.RowHit;
 import com.modernchat.draw.SenderSegment;
 import com.modernchat.draw.TextSegment;
 import com.modernchat.draw.TimestampSegment;
+import com.modernchat.draw.UsernameHit;
 import com.modernchat.draw.VisualLine;
 import com.modernchat.feature.ToggleChatFeature;
 import com.modernchat.service.FontService;
@@ -55,8 +56,10 @@ import java.awt.event.MouseWheelEvent;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -112,6 +115,7 @@ public class MessageContainer extends Overlay
     @Getter protected int maxScroll = 0;
 
     @Getter protected MouseHandler mouse;
+    private volatile List<UsernameHit> usernameHits = List.of();
 
     public MessageContainer() {
         setPosition(OverlayPosition.DYNAMIC);
@@ -157,6 +161,7 @@ public class MessageContainer extends Overlay
 
     @Override
     public Dimension render(Graphics2D g) {
+        usernameHits = List.of();
         if (!isEnabled() || hidden)
             return null;
 
@@ -214,6 +219,7 @@ public class MessageContainer extends Overlay
 
             // Flatten wrapped lines (oldest to newest)
             final List<VisualLine> all = new ArrayList<>(64);
+            final Map<VisualLine, RichLine> owners = new IdentityHashMap<>();
             for (RichLine rl : lines) {
                 if (!config.isShowPrivateMessages() && ChatUtil.isPrivateMessage(rl.getType())) {
                     continue;
@@ -232,8 +238,12 @@ public class MessageContainer extends Overlay
                     rl.setLineCache(wrapRichLine(rl, fm, innerW));
                 }
                 final List<VisualLine> cache = rl.getLineCache();
-                if (cache != null && !cache.isEmpty())
+                if (cache != null && !cache.isEmpty()) {
                     all.addAll(cache);
+                    for (VisualLine visualLine : cache) {
+                        owners.put(visualLine, rl);
+                    }
+                }
             }
 
             // Measure content height and auto-stick to bottom when needed
@@ -253,6 +263,7 @@ public class MessageContainer extends Overlay
 
             int bottomAlignOffset = Math.max(0, msgViewport.height - contentHeightPx);
             int y = msgViewport.y + bottomAlignOffset - scrollOffsetPx + fm.getAscent();
+            List<UsernameHit> renderedUsernameHits = new ArrayList<>();
             for (VisualLine vl : all) {
                 if (y - fm.getAscent() > msgViewport.y + msgViewport.height)
                     break; // below viewport
@@ -305,6 +316,17 @@ public class MessageContainer extends Overlay
                             segColor, config.getShadowColor(),
                             config.getTextShadow(), config.getTextOutline());
 
+                        if (seg instanceof SenderSegment && !StringUtil.isNullOrEmpty(segText)) {
+                            RichLine owner = owners.get(vl);
+                            String username = owner != null ? owner.getSender() : null;
+                            if (!StringUtil.isNullOrEmpty(username) && !"You".equalsIgnoreCase(username)) {
+                                renderedUsernameHits.add(new UsernameHit(
+                                    new Rectangle(dx, y - fm.getAscent(), fm.stringWidth(segText), lineH),
+                                    username,
+                                    owner.getMessageId()));
+                            }
+                        }
+
                         dx += fm.stringWidth(segText);
                         if (dx > right)
                             break;
@@ -316,6 +338,7 @@ public class MessageContainer extends Overlay
             g.setClip(oldClip);
 
             drawScrollbar(g, msgViewport, sbW);
+            usernameHits = List.copyOf(renderedUsernameHits);
         } finally {
             g.setComposite(oldComp);
         }
@@ -484,7 +507,8 @@ public class MessageContainer extends Overlay
             line.getDuplicateKey(),
             line.isCollapsed(),
             line.getSenderRankIconId(),
-            line.getSenderIconId());
+            line.getSenderIconId(),
+            line.getMessageId());
     }
 
     public void pushLine(
@@ -541,6 +565,49 @@ public class MessageContainer extends Overlay
         int senderRankIconId,
         int senderIconId
     ) {
+        pushLine(s, type, timestamp, sender, receiver, targetName, prefix, duplicateKey,
+            collapsed, senderRankIconId, senderIconId, -1);
+    }
+
+    public void pushLine(
+        String s,
+        ChatMessageType type,
+        long timestamp,
+        String sender,
+        String receiver,
+        String targetName,
+        String prefix,
+        String duplicateKey,
+        boolean collapsed,
+        int senderRankIconId,
+        int senderIconId,
+        int messageId
+    ) {
+        RichLine rl = createRichLine(s, type, timestamp, sender, receiver, targetName, prefix,
+            duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
+
+        // If this is a collapsed message (has count suffix), remove previous messages with same key
+        if (collapsed && duplicateKey != null) {
+            lines.removeIf(line -> duplicateKey.equals(line.getDuplicateKey()));
+        }
+
+        pushRich(rl);
+    }
+
+    private RichLine createRichLine(
+        String s,
+        ChatMessageType type,
+        long timestamp,
+        String sender,
+        String receiver,
+        String targetName,
+        String prefix,
+        String duplicateKey,
+        boolean collapsed,
+        int senderRankIconId,
+        int senderIconId,
+        int messageId
+    ) {
         type = type == null ? ChatMessageType.GAMEMESSAGE : type;
 
         // Always use default color as base (for sender name, etc.)
@@ -561,15 +628,58 @@ public class MessageContainer extends Overlay
         rl.setSender(sender);
         rl.setReceiver(receiver);
         rl.setTargetName(targetName);
+        rl.setPrefix(prefix);
         rl.setDuplicateKey(duplicateKey);
         rl.setCollapsed(collapsed);
+        rl.setSenderRankIconId(senderRankIconId);
+        rl.setSenderIconId(senderIconId);
+        rl.setMessageId(messageId);
+        return rl;
+    }
 
-        // If this is a collapsed message (has count suffix), remove previous messages with same key
-        if (collapsed && duplicateKey != null) {
-            lines.removeIf(line -> duplicateKey.equals(line.getDuplicateKey()));
+    /**
+     * Replaces the body of the line backed by {@code messageId} without changing its position or
+     * metadata. RuneLite's Chat Commands plugin updates MessageNode formatting asynchronously, so
+     * replacing in place avoids a duplicate command/result pair and does not affect unread state.
+     */
+    public boolean replaceLineBody(int messageId, String messageBody) {
+        if (messageId < 0) {
+            return false;
         }
 
-        pushRich(rl);
+        List<RichLine> updated = new ArrayList<>(lines.size());
+        boolean replaced = false;
+        for (RichLine line : lines) {
+            if (line.getMessageId() != messageId) {
+                updated.add(line);
+                continue;
+            }
+
+            String body = messageBody == null ? "" : messageBody;
+            String sender = line.getSender();
+            String text = StringUtil.isNullOrEmpty(sender) ? body : sender + ": " + body;
+            RichLine replacement = createRichLine(
+                text,
+                line.getType(),
+                line.getTimestamp(),
+                sender,
+                line.getReceiver(),
+                line.getTargetName(),
+                line.getPrefix(),
+                line.getDuplicateKey(),
+                line.isCollapsed(),
+                line.getSenderRankIconId(),
+                line.getSenderIconId(),
+                messageId);
+            updated.add(replacement);
+            replaced = true;
+        }
+
+        if (replaced) {
+            lines.clear();
+            lines.addAll(updated);
+        }
+        return replaced;
     }
 
     /**
@@ -713,6 +823,9 @@ public class MessageContainer extends Overlay
         if (line == null || sender == null || sender.isEmpty())
             return;
 
+        // Include one character past the sender so the separator can inherit the username color.
+        // The trailing space remains normal message text.
+        final int senderAndSeparatorLength = sender.length() + 1;
         StringBuilder leadingText = new StringBuilder();
         for (TextSegment seg : line.getSegs()) {
             if (seg instanceof TimestampSegment || seg instanceof PrefixSegment || seg instanceof ImageSegment)
@@ -722,7 +835,7 @@ public class MessageContainer extends Overlay
             if (text != null)
                 leadingText.append(text);
 
-            if (leadingText.length() >= sender.length())
+            if (leadingText.length() >= senderAndSeparatorLength)
                 break;
         }
 
@@ -730,6 +843,10 @@ public class MessageContainer extends Overlay
             return;
 
         int senderTextRemaining = sender.length();
+        if (leadingText.length() > sender.length() && leadingText.charAt(sender.length()) == ':') {
+            senderTextRemaining++;
+        }
+
         for (int i = 0; i < line.getSegs().size() && senderTextRemaining > 0; i++) {
             TextSegment seg = line.getSegs().get(i);
             if (seg instanceof TimestampSegment || seg instanceof PrefixSegment || seg instanceof ImageSegment)
@@ -941,6 +1058,12 @@ public class MessageContainer extends Overlay
         copy.setSender(source.getSender());
         copy.setReceiver(source.getReceiver());
         copy.setTargetName(source.getTargetName());
+        copy.setPrefix(source.getPrefix());
+        copy.setDuplicateKey(source.getDuplicateKey());
+        copy.setCollapsed(source.isCollapsed());
+        copy.setSenderRankIconId(source.getSenderRankIconId());
+        copy.setSenderIconId(source.getSenderIconId());
+        copy.setMessageId(source.getMessageId());
 
         // Copy segments (they're immutable-ish, safe to share references)
         copy.getSegs().addAll(source.getSegs());
@@ -1021,6 +1144,20 @@ public class MessageContainer extends Overlay
 
     public boolean hitAt(Point mouse) {
         return lastViewport != null && lastViewport.contains(new java.awt.Point(mouse.getX(), mouse.getY()));
+    }
+
+    /** Return the rendered username under the pointer, if any. */
+    public @Nullable UsernameHit usernameAt(Point point) {
+        if (point == null || hidden) {
+            return null;
+        }
+        java.awt.Point awtPoint = new java.awt.Point(point.getX(), point.getY());
+        for (UsernameHit hit : usernameHits) {
+            if (hit.getBounds().contains(awtPoint)) {
+                return hit;
+            }
+        }
+        return null;
     }
 
     public Color getTextColor() {

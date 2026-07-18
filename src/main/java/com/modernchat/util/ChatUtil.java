@@ -242,6 +242,17 @@ public class ChatUtil
         return createMessageLine(e, client, requireLocalPlayer, filteredMessage, null);
     }
 
+    public static @Nullable MessageLine createMessageLine(
+        ChatMessage e,
+        Client client,
+        boolean requireLocalPlayer,
+        @Nullable String filteredMessage,
+        @Nullable ChatIconManager chatIconManager,
+        @Nullable String resolvedMessage
+    ) {
+        return createMessageLineInternal(e, client, requireLocalPlayer, filteredMessage, chatIconManager, resolvedMessage);
+    }
+
     /** Pattern to detect ChatFilterPlugin's collapse suffix like " (2)", " (15)" etc. */
     private static final Pattern COLLAPSE_PATTERN = Pattern.compile(" \\(\\d+\\)$");
 
@@ -267,6 +278,17 @@ public class ChatUtil
      * @param filteredMessage optional filtered message text (from chat filter plugins), or null to use original
      */
     public static @Nullable MessageLine createMessageLine(ChatMessage e, Client client, boolean requireLocalPlayer, @Nullable String filteredMessage, @Nullable ChatIconManager chatIconManager) {
+        return createMessageLineInternal(e, client, requireLocalPlayer, filteredMessage, chatIconManager, null);
+    }
+
+    private static @Nullable MessageLine createMessageLineInternal(
+        ChatMessage e,
+        Client client,
+        boolean requireLocalPlayer,
+        @Nullable String filteredMessage,
+        @Nullable ChatIconManager chatIconManager,
+        @Nullable String resolvedMessage
+    ) {
         Player localPlayer = client.getLocalPlayer();
         if (localPlayer == null && requireLocalPlayer)
             return null;
@@ -289,10 +311,12 @@ public class ChatUtil
             ? e.getMessageNode().getValue()
             : null;
         boolean messageWasFiltered = filteredMessage != null && originalMsg != null && !filteredMessage.equals(originalMsg);
-        String msg = !messageWasFiltered && processedMsg != null
-            ? processedMsg
-            : filteredMessage != null ? filteredMessage : originalMsg;
-        String[] params = msg.split("\\|", 3);
+        String msg = resolvedMessage != null
+            ? resolvedMessage
+            : !messageWasFiltered && processedMsg != null
+                ? processedMsg
+                : filteredMessage != null ? filteredMessage : originalMsg;
+        String[] params = msg == null ? new String[0] : msg.split("\\|", 3);
         String receiverName = senderReceiver.getReceiverName();
         String senderName = senderReceiver.getSenderName();
         int senderIconId = senderReceiver.getSenderIconId();
@@ -309,18 +333,7 @@ public class ChatUtil
             builder.append(senderName, false).append(": ");
         }
 
-        String message = msg;
-        if (params.length > 1) {
-            int icon = ChatUtil.getModImageId(params[0]);
-            if (icon != -1) {
-                builder.img(icon);
-            }
-
-            // message should always be last
-            message = params[params.length - 1];
-        }
-
-        builder.append(message, false);
+        builder.append(resolvedMessage != null ? resolvedMessage : normalizeMessageBody(msg), false);
 
         // Generate duplicate key from name + original message (for collapse detection)
         String duplicateKey = e.getName() + ":" + originalMsg;
@@ -332,7 +345,32 @@ public class ChatUtil
             && COLLAPSE_PATTERN.matcher(filteredMessage).find()
             && !originalMsg.equals(filteredMessage); // only if filtered differs from original
 
-        return new MessageLine(builder.build(), type, timestamp, senderName, receiverName, prefix, duplicateKey, collapsed, senderRankIconId, senderIconId);
+        int messageId = e.getMessageNode() != null ? e.getMessageNode().getId() : -1;
+        return new MessageLine(builder.build(), type, timestamp, senderName, receiverName, prefix,
+            duplicateKey, collapsed, senderRankIconId, senderIconId, messageId);
+    }
+
+    /**
+     * Removes the chat script's pipe-delimited transport prefix while preserving an optional
+     * mod-icon prefix as a normal rich-text image tag.
+     */
+    public static String normalizeMessageBody(@Nullable String message) {
+        if (message == null || message.isEmpty()) {
+            return message == null ? "" : message;
+        }
+
+        String[] params = message.split("\\|", 3);
+        if (params.length <= 1) {
+            return message;
+        }
+
+        ChatMessageBuilder builder = new ChatMessageBuilder();
+        int icon = ChatUtil.getModImageId(params[0]);
+        if (icon != -1) {
+            builder.img(icon);
+        }
+        builder.append(params[params.length - 1], false);
+        return builder.build();
     }
 
     private static int getFriendsChatRankIconId(ChatMessageType type, @Nullable String senderName, Client client, @Nullable ChatIconManager chatIconManager) {
@@ -435,11 +473,12 @@ public class ChatUtil
             rl.getTimestamp(),
             rl.getSender(),
             rl.getReceiver(),
-            "", // Prefix is not directly stored in RichLine, using empty string for now
+            rl.getPrefix(),
             rl.getDuplicateKey(),
             rl.isCollapsed(),
-            -1,
-            senderIcon
+            rl.getSenderRankIconId(),
+            rl.getSenderIconId() >= 0 ? rl.getSenderIconId() : senderIcon,
+            rl.getMessageId()
         );
     }
 }
