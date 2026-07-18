@@ -11,7 +11,9 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ScriptID;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.ScriptCallbackEvent;
+import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.widgets.Widget;
@@ -116,6 +118,14 @@ public class KeyRemappingService implements ChatService {
         return typing;
     }
 
+    /**
+     * Single source of truth for whether the vanilla chat input is allowed to be
+     * open: only while the user has explicitly opened chat (typing state).
+     */
+    public boolean isChatInputAllowed() {
+        return typing;
+    }
+
     public void lockChat() {
         if (!typing)
             return;
@@ -133,6 +143,41 @@ public class KeyRemappingService implements ChatService {
 
         typing = true;
         clientThread.invoke(() -> client.runScript(ScriptID.MESSAGE_LAYER_CLOSE, 0, 1, 0));
+    }
+
+    /**
+     * Re-assert the chat lock when the client re-opens or rebuilds the vanilla chat
+     * input while the user has chat closed - dialogs, clue scrolls and vanilla chat
+     * tab switches all do this (#43). Fails open whenever the chatbox may be hosting
+     * a legitimate prompt. MUST be called on the client thread.
+     */
+    public void relockChat() {
+        if (!enabled || isChatInputAllowed())
+            return;
+
+        if (!canRelockChat())
+            return;
+
+        client.runScript(ScriptID.MESSAGE_LAYER_CLOSE, 0, 0, 0);
+        ClientUtil.setChatboxWidgetInput(client, ClientUtil.PRESS_ENTER_TO_CHAT);
+    }
+
+    private boolean canRelockChat() {
+        // Only touch the message layer while the plain chat input line is the live
+        // input; prompts (enter amount, searches, name inputs), dialogs and PM
+        // compose must keep working, so skip when any of them own the chatbox.
+        if (!ClientUtil.isChatInputEditable(client))
+            return false;
+        if (ClientUtil.isChatLocked(client))
+            return false;
+        if (ClientUtil.isDialogOpen(client) || ClientUtil.isSystemWidgetActive(client))
+            return false;
+        if (ClientUtil.isPmComposeOpen(client))
+            return false;
+        if (chatProxy.isCommandMode())
+            return false;
+        // Covers the world map search, report interface and focused input fields
+        return chatboxFocused();
     }
 
     public void checkConflictingPlugin() {
@@ -189,17 +234,41 @@ public class KeyRemappingService implements ChatService {
 
         switch (e.getEventName()) {
             case "setChatboxInput":
-                if (!typing) {
+                if (!isChatInputAllowed()) {
                     ClientUtil.setChatboxWidgetInput(client, ClientUtil.PRESS_ENTER_TO_CHAT);
                 }
                 break;
             case "blockChatInput":
-                if (!typing) {
+                if (!isChatInputAllowed()) {
                     int[] intStack = client.getIntStack();
                     intStack[client.getIntStackSize() - 1] = 1;
                 }
                 break;
         }
+    }
+
+    @Subscribe
+    public void onScriptPostFired(ScriptPostFired e) {
+        if (!enabled)
+            return;
+
+        switch (e.getScriptId()) {
+            case ScriptID.MESSAGE_LAYER_CLOSE:
+            case ScriptID.BUILD_CHATBOX:
+            case ScriptID.CHAT_TEXT_INPUT_REBUILD:
+                relockChat();
+                break;
+        }
+    }
+
+    @Subscribe
+    public void onClientTick(ClientTick e) {
+        if (!enabled)
+            return;
+
+        // Backstop for interfaces that re-enable the chat input without running
+        // the message layer scripts (e.g. clue scrolls)
+        relockChat();
     }
 
     private void refreshConfig() {
