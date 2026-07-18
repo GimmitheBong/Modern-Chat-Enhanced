@@ -578,8 +578,10 @@ public class MessageContainer extends Overlay
             return baseTag + senderPart + endTag + forceTag + stripBodyColorTags(bodyPart) + endTag;
         }
 
-        // Fallback: color the entire message with ForceRecolor if no separator found
-        return forceTag + stripBodyColorTags(message) + endTag;
+        // Sender present but no ": " separator (e.g. DIALOG messages where the sender's
+        // color tag wraps the entire line): leave the message untouched - stripping
+        // color tags here would destroy the sender's own color wrap.
+        return message;
     }
 
     /**

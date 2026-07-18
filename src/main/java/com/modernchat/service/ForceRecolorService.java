@@ -166,9 +166,11 @@ public class ForceRecolorService implements ChatService {
             return null;
         }
 
-        log.debug("ForceRecolor match: group={}, style={}, transparentBackdrop={}, usingFallbackPalette={}, color=#{}",
-            matchedGroup, recolorStyle, isTransparentBackdrop, primary == null,
-            String.format("%06X", result.getRGB() & 0xFFFFFF));
+        if (log.isDebugEnabled()) {
+            log.debug("ForceRecolor match: group={}, style={}, transparentBackdrop={}, usingFallbackPalette={}, color=#{}",
+                matchedGroup, recolorStyle, isTransparentBackdrop, primary == null,
+                String.format("%06X", result.getRGB() & 0xFFFFFF));
+        }
         return result;
     }
 
