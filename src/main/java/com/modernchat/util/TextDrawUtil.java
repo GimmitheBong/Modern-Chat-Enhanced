@@ -8,7 +8,7 @@ public final class TextDrawUtil
     private TextDrawUtil() {}
 
     /**
-     * Draw text with either a diagonal drop shadow or a stamped outline.
+     * Draw text with a diagonal drop shadow, a stamped outline, or both.
      * <p>
      * When {@code outlineThickness > 0} the shadow color is stamped at every
      * integer offset within a square of half-side {@code outlineThickness}, then
@@ -18,6 +18,12 @@ public final class TextDrawUtil
      * {@code BasicStroke}-stroked-path approach — that combination tessellates
      * offset curves on every call and was the cause of severe FPS drops in the
      * peek overlay (which re-renders every frame).
+     * <p>
+     * When {@code shadowOffset > 0} is combined with an outline, the drop shadow
+     * of the outlined shape is stamped first (the same square of offsets shifted
+     * diagonally by the shadow offset, skipping positions the outline pass covers
+     * anyway), so both settings compose instead of the outline silently disabling
+     * the shadow.
      * <p>
      * When {@code outlineThickness == 0} the legacy diagonal drop-shadow is used.
      *
@@ -38,6 +44,23 @@ public final class TextDrawUtil
         {
             g.setColor(shadowColor);
             final int t = outlineThickness;
+            if (shadowOffset > 0)
+            {
+                // Drop shadow of the outlined shape: stamp the outline square
+                // shifted diagonally by the shadow offset. Positions the outline
+                // pass below stamps anyway are skipped so each spot is stamped
+                // once and the overlap costs nothing extra.
+                for (int dy = -t; dy <= t; dy++)
+                {
+                    for (int dx = -t; dx <= t; dx++)
+                    {
+                        final int sx = dx + shadowOffset;
+                        final int sy = dy + shadowOffset;
+                        if (Math.abs(sx) <= t && Math.abs(sy) <= t) continue;
+                        g.drawString(text, x + sx, y + sy);
+                    }
+                }
+            }
             for (int dy = -t; dy <= t; dy++)
             {
                 for (int dx = -t; dx <= t; dx++)
