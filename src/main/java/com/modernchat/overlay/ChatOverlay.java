@@ -293,6 +293,7 @@ public class ChatOverlay extends OverlayPanel
 
         messageContainers.forEach((mode, container) -> {
             container.setChromeEnabled(true);
+            container.setCanShowDecider(c -> !isHidden());
             container.startUp(containerConfig, ChatMode.valueOf(mode));
         });
 
@@ -301,15 +302,18 @@ public class ChatOverlay extends OverlayPanel
         allContainer.setChromeEnabled(true);
         allContainer.setMaxLines(ALL_TAB_MAX_LINES);
         allContainer.setApplyChannelFilters(true);
+        allContainer.setCanShowDecider(c -> !isHidden());
         allContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         // Initialize Game and Trade containers (read-only tabs)
         gameContainer = messageContainerProvider.get();
         gameContainer.setChromeEnabled(true);
+        gameContainer.setCanShowDecider(c -> !isHidden());
         gameContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         tradeContainer = messageContainerProvider.get();
         tradeContainer.setChromeEnabled(true);
+        tradeContainer.setCanShowDecider(c -> !isHidden());
         tradeContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         refreshTabs();
@@ -1776,6 +1780,11 @@ public class ChatOverlay extends OverlayPanel
         if (hidden) {
             unfocusInput();
             resizePanel.resetCursor();
+            // Drop the cached viewport so the container's global mouse listener can't
+            // hit-test against a stale rect while the overlay is hidden; render()
+            // repopulates it when the overlay is shown again
+            if (messageContainer != null)
+                messageContainer.clearChatWidget();
         } else {
             focusInput();
         }
@@ -2147,6 +2156,7 @@ public class ChatOverlay extends OverlayPanel
         if (container == null) {
             container = messageContainerProvider.get();
             container.setPrivate(true);
+            container.setCanShowDecider(c -> !isHidden());
             container.startUp(config.getMessageContainerConfig(), ChatMode.PRIVATE);
             privateContainers.put(targetName, container);
 

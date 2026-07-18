@@ -1005,7 +1005,7 @@ public class MessageContainer extends Overlay
 
         @Override
         public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
-            if (!isEnabled() || isHidden())
+            if (!isEnabled() || isHidden() || !canShow())
                 return e;
             if (!config.isScrollable())
                 return e;
@@ -1044,7 +1044,7 @@ public class MessageContainer extends Overlay
 
         @Override
         public MouseEvent mousePressed(MouseEvent e) {
-            if (!isEnabled() || isHidden())
+            if (!isEnabled() || isHidden() || !canShow())
                 return e;
             if (lastViewport == null || !lastViewport.contains(e.getPoint()))
                 return e;
@@ -1060,7 +1060,7 @@ public class MessageContainer extends Overlay
 
         @Override
         public MouseEvent mouseDragged(MouseEvent e) {
-            if (!isEnabled() || isHidden() || !dragging)
+            if (!isEnabled() || isHidden() || !canShow() || !dragging)
                 return e;
 
             int thumbTravel = trackHeight - thumb.height;
