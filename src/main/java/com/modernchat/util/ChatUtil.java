@@ -23,6 +23,7 @@ import java.awt.datatransfer.Transferable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,6 +49,61 @@ public class ChatUtil
         if (name == null || name.isEmpty()) return -1;
         Matcher m = IMG_TAG_PATTERN.matcher(name);
         return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
+
+    /**
+     * Strips formatting tags the way the Force Recolor plugin's removeMostTags does:
+     * every tag is removed EXCEPT &lt;lt&gt;, &lt;gt&gt; and &lt;img=N&gt;. Force Recolor
+     * patterns are built from Text.escapeJagex'd text, so the surviving lt/gt entities
+     * line up with the escaped pattern text when matching.
+     */
+    public static String removeMostTags(@Nullable String s) {
+        return stripTags(s, false);
+    }
+
+    /**
+     * Strips only color tags (&lt;col=...&gt;, &lt;colNORMAL&gt;, &lt;/col&gt;) so an outer
+     * color wrapper actually wins; all other tags (&lt;img=N&gt;, &lt;lt&gt;, &lt;gt&gt;,
+     * &lt;br&gt;, ...) are preserved.
+     */
+    public static String removeColorTags(@Nullable String s) {
+        return stripTags(s, true);
+    }
+
+    private static String stripTags(@Nullable String s, boolean colorTagsOnly) {
+        if (s == null || s.isEmpty() || s.indexOf('<') < 0) return s;
+
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); ) {
+            char ch = s.charAt(i);
+            if (ch != '<') {
+                out.append(ch);
+                i++;
+                continue;
+            }
+
+            int j = s.indexOf('>', i + 1);
+            if (j < 0) {
+                // Unterminated tag: keep the remainder as-is (parseRich stops here too)
+                out.append(s, i, s.length());
+                break;
+            }
+
+            String tag = s.substring(i + 1, j);
+            String tagLower = tag.toLowerCase(Locale.ROOT);
+            boolean keep;
+            if (colorTagsOnly) {
+                // Match parseRich's color tag detection: <col=HEX>, <colHEX>, <colNORMAL>, </col>
+                keep = !(tagLower.startsWith("col") || tagLower.equals("/col"));
+            } else {
+                keep = tagLower.equals("lt") || tagLower.equals("gt") || tagLower.startsWith("img");
+            }
+            if (keep) {
+                out.append('<').append(tag).append('>');
+            }
+            i = j + 1;
+        }
+        return out.toString();
     }
 
     public static boolean isPrivateMessage(ChatMessageType t) {
