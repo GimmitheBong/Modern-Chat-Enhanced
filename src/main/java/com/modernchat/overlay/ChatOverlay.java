@@ -371,6 +371,11 @@ public class ChatOverlay extends OverlayPanel
         if (messageContainer == null) {
             selectTab(config.getDefaultChatMode());
 
+            // The default mode may have no tab (e.g. PUBLIC is replaced by the All tab),
+            // so fall back to the All tab rather than never rendering the overlay again.
+            if (messageContainer == null)
+                selectTabByKey(ALL_TAB_KEY);
+
             if (messageContainer == null)
                 return null;
         }
@@ -1375,6 +1380,25 @@ public class ChatOverlay extends OverlayPanel
         messageContainer.setAlpha(1f);
     }
 
+    private @Nullable MessageContainer containerForTab(@Nullable Tab tab) {
+        if (tab == null)
+            return null;
+
+        String key = tab.getKey();
+        if (ALL_TAB_KEY.equals(key))
+            return allContainer;
+        if (GAME_TAB_KEY.equals(key))
+            return gameContainer;
+        if (TRADE_TAB_KEY.equals(key))
+            return tradeContainer;
+        if (tab.isPrivate()) {
+            String targetName = tab.getTargetName();
+            // ConcurrentHashMap rejects null keys
+            return targetName != null ? privateContainers.get(targetName) : null;
+        }
+        return messageContainers.get(key);
+    }
+
     public Color getInputPrefixColor() {
         Color prefixColor = messageContainer != null ? messageContainer.getTextColor() : null;
         return prefixColor != null ? prefixColor : config.getInputPrefixColor();
@@ -1561,7 +1585,11 @@ public class ChatOverlay extends OverlayPanel
             sub.createMenuEntry(index++)
                 .setOption("Clear messages")
                 .setType(MenuAction.RUNELITE)
-                .onClick(me -> clear());
+                .onClick(me -> {
+                    MessageContainer container = containerForTab(hovered);
+                    if (container != null)
+                        container.clearMessages();
+                });
 
             sub.createMenuEntry(index++)
                 .setOption("Move left")
