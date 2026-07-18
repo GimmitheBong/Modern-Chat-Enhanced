@@ -1824,8 +1824,8 @@ public class ChatOverlay extends OverlayPanel
     }
 
     private void commitInput() {
-        final String text = getInputText().trim();
-        if (!text.isEmpty()) {
+        final String text = getInputText();
+        if (!text.trim().isEmpty()) {
             Player player = client.getLocalPlayer();
             if (player != null)
                 sendMessage(text);
