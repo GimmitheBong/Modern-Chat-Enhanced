@@ -1,6 +1,7 @@
 package com.modernchat;
 
 import com.google.inject.Provides;
+import com.modernchat.compat.remapper.KeyRemappingService;
 import com.modernchat.common.Anchor;
 import com.modernchat.common.ChatMessageBuilder;
 import com.modernchat.common.ChatProxy;
@@ -9,35 +10,34 @@ import com.modernchat.common.PrivateChatAnchor;
 import com.modernchat.common.WidgetBucket;
 import com.modernchat.event.DialogOptionsClosedEvent;
 import com.modernchat.event.DialogOptionsOpenedEvent;
+import com.modernchat.event.FeatureStartedEvent;
+import com.modernchat.event.FeatureStoppedEvent;
 import com.modernchat.event.LegacyChatVisibilityChangeEvent;
 import com.modernchat.event.MessageLayerClosedEvent;
 import com.modernchat.event.MessageLayerOpenedEvent;
-import com.modernchat.event.LeftDialogClosedEvent;
-import com.modernchat.event.LeftDialogOpenedEvent;
 import com.modernchat.event.NotificationEvent;
-import com.modernchat.event.RightDialogClosedEvent;
-import com.modernchat.event.RightDialogOpenedEvent;
 import com.modernchat.feature.ChatFeature;
 import com.modernchat.feature.ChatRedesignFeature;
 import com.modernchat.feature.MessageHistoryChatFeature;
+import com.modernchat.overlay.ChatOverlay;
 import com.modernchat.feature.NotificationChatFeature;
+import com.modernchat.feature.PeekChatFeature;
 import com.modernchat.feature.ToggleChatFeature;
 import com.modernchat.feature.command.CommandsChatFeature;
-import com.modernchat.feature.PeekChatFeature;
-import com.modernchat.service.ExtendedInputService;
 import com.modernchat.service.FilterService;
 import com.modernchat.service.FontService;
 import com.modernchat.service.ForceRecolorService;
 import com.modernchat.service.ImageService;
+import com.modernchat.service.MessageFilterService;
 import com.modernchat.service.MessageService;
 import com.modernchat.service.PrivateChatService;
 import com.modernchat.service.ProfileService;
 import com.modernchat.service.SoundService;
 import com.modernchat.service.SpamFilterService;
 import com.modernchat.service.TutorialService;
+import com.modernchat.util.ChatUtil;
 import com.modernchat.util.ClientUtil;
 import com.modernchat.util.GeometryUtil;
-import com.modernchat.util.ChatUtil;
 import com.modernchat.util.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
@@ -48,20 +48,19 @@ import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Player;
 import net.runelite.api.ScriptID;
+import net.runelite.api.VarClientStr;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.MenuOpened;
 import net.runelite.api.events.PostClientTick;
 import net.runelite.api.events.ScriptPostFired;
-import net.runelite.api.events.ScriptPreFired;
+import net.runelite.api.events.VarClientStrChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
@@ -69,22 +68,18 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.PluginChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginInstantiationException;
-import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.ui.ClientToolbar;
-import net.runelite.client.ui.JagexColors;
 import net.runelite.client.ui.NavigationButton;
-import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
-import javax.swing.SwingUtilities;
 import java.awt.Color;
 import java.awt.Rectangle;
-import java.awt.event.KeyEvent;
+import java.time.Instant;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -99,9 +94,12 @@ import static com.modernchat.common.NotifyType.MESSAGE_RECEIVED;
 @PluginDescriptor(
 	name = "Modern Chat",
 	description = "A chat plugin for RuneLite that modernizes the chat experience with additional features.",
-	tags = {"chat", "modern", "quality of life"}
+	tags = {"chat", "modern", "quality of life"}/*,
+	conflicts = "Key Remapping"*/
 )
 public class ModernChatPlugin extends Plugin {
+
+	private static final String EXTENDED_BINDING_ID = "toggleChat";
 
 	@Inject private Client client;
 	@Inject private ClientThread clientThread;
@@ -120,11 +118,12 @@ public class ModernChatPlugin extends Plugin {
     @Inject private MessageService messageService;
     @Inject private ImageService imageService;
     @Inject private SpamFilterService spamFilterService;
-	@Inject private ExtendedInputService extendedInputService;
 	@Inject private ForceRecolorService forceRecolorService;
+	@Inject private MessageFilterService messageFilterService;
+	@Inject private KeyRemappingService keyRemappingService;
 	@Inject private WidgetBucket widgetBucket;
 	@Inject private ChatProxy chatProxy;
-	@Inject private PluginManager pluginManager;
+	@Inject private ChatOverlay chatOverlay;
 
 	//@Inject private ExampleChatFeature exampleChatFeature;
 	@Inject private ToggleChatFeature toggleChatFeature;
@@ -139,7 +138,7 @@ public class ModernChatPlugin extends Plugin {
 
 	private Set<ChatFeature<?>> features;
 	private final AtomicBoolean chatVisible = new AtomicBoolean(false);
-	private final AtomicBoolean keyRemapperReloading = new AtomicBoolean(false);
+	private final AtomicBoolean dialogOpen = new AtomicBoolean(false);
 	private volatile Anchor pmAnchor = null;
 	private volatile Rectangle lastChatBounds;
 	private boolean loggedIn;
@@ -162,8 +161,8 @@ public class ModernChatPlugin extends Plugin {
 		fontService.startUp();
 		soundService.startUp();
 		imageService.startUp();
-		extendedInputService.startUp();
 		forceRecolorService.startUp();
+		messageFilterService.startUp();
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/com/modernchat/images/icon.png");
 		if (icon == null) {
@@ -204,8 +203,8 @@ public class ModernChatPlugin extends Plugin {
 		// Force an initial re-anchor if enabled once widgets are available
 		lastChatBounds = null;
 
-        // Reload KeyRemappingPlugin to ensure it picks up our key listeners
-		SwingUtilities.invokeLater(this::reloadKeyRemappingPlugin);
+		keyRemappingService.startUp();
+		keyRemappingService.checkConflictingPlugin();
 
 		if (!config.featureExample_Enabled()) {
 			toggleChatFeature.scheduleDeferredHide();
@@ -219,6 +218,7 @@ public class ModernChatPlugin extends Plugin {
 
 	@Override
 	protected void shutDown() {
+		dialogOpen.set(false);
 		if (navButton != null) {
 			clientToolbar.removeNavigation(navButton);
 			navButton = null;
@@ -238,8 +238,9 @@ public class ModernChatPlugin extends Plugin {
 		soundService.shutDown();
 		tutorialService.shutDown();
 		imageService.shutDown();
-		extendedInputService.shutDown();
 		forceRecolorService.shutDown();
+		messageFilterService.shutDown();
+		keyRemappingService.shutDown();
 
 		if (features != null) {
 			features.forEach((feature) -> {
@@ -272,6 +273,9 @@ public class ModernChatPlugin extends Plugin {
 	public void onMenuOpened(MenuOpened e) {
 		MenuEntry[] entries = e.getMenuEntries();
 		if (entries.length == 1)
+			return;
+
+		if (!config.general_ChatWithMenuEnabled())
 			return;
 
 		tryAddPrivateMessageMenuOption(entries);
@@ -347,6 +351,16 @@ public class ModernChatPlugin extends Plugin {
 	}
 
 	@Subscribe
+	public void onDialogOptionsOpenedEvent(DialogOptionsOpenedEvent e) {
+		clientThread.invokeLater(() -> {
+			if (chatProxy.isLegacyHidden()) {
+				chatProxy.ensureLegacyChatVisible();
+				chatProxy.setAutoHide(config.featureToggle_Enabled());
+			}
+		});
+	}
+
+	@Subscribe
 	public void onVarbitChanged(VarbitChanged e) {
 		if (e.getVarpId() == VarPlayerID.OPTION_PM) {
 			if (!ClientUtil.isOnline(client))
@@ -361,6 +375,12 @@ public class ModernChatPlugin extends Plugin {
 				}
 			});
 		}
+	}
+
+	@Subscribe
+	public void onPluginChanged(PluginChanged e) {
+		if ("Key Remapping".equals(e.getPlugin().getName()))
+			keyRemappingService.checkConflictingPlugin();
 	}
 
 	@Subscribe
@@ -380,12 +400,28 @@ public class ModernChatPlugin extends Plugin {
 					.append(" in the OSRS settings for the 'Anchor Private Chat' feature."));
 			}
 		}
-		else if (key.equals(ModernChatConfigBase.Keys.featureToggle_Enabled)) {
-			boolean enabled = Boolean.parseBoolean(e.getNewValue());
-			if (enabled) {
-				clientThread.invokeAtTickEnd(() -> {
-					SwingUtilities.invokeLater(this::reloadKeyRemappingPlugin);
-				});
+	}
+
+	@Subscribe
+	public void onFeatureStartedEvent(FeatureStartedEvent e) {
+		keyRemappingService.shutDown();
+		keyRemappingService.startUp();
+	}
+
+	@Subscribe
+	public void onFeatureStoppedEvent(FeatureStoppedEvent e) {
+		keyRemappingService.shutDown();
+		keyRemappingService.startUp();
+	}
+
+	@Subscribe
+	public void onVarClientStrChanged(VarClientStrChanged e) {
+		if (e.getIndex() == VarClientStr.INPUT_TEXT) {
+			// When the player starts typing into a system prompt, ensure chat is shown
+			String s = client.getVarcStrValue(VarClientStr.INPUT_TEXT);
+			if (s != null && chatProxy.isLegacyHidden() && chatProxy.isLegacy()) {
+				chatProxy.ensureLegacyChatVisible();
+				chatProxy.setAutoHide(config.featureToggle_Enabled());
 			}
 		}
 	}
@@ -396,25 +432,34 @@ public class ModernChatPlugin extends Plugin {
 
 		switch (e.getScriptId()) {
 			case ScriptID.MESSAGE_LAYER_OPEN:
-				eventBus.post(new MessageLayerOpenedEvent(messageWidget, widgetBucket.isPmWidget(messageWidget)));
+				eventBus.post(new MessageLayerOpenedEvent(messageWidget,
+					widgetBucket.isPmWidget(messageWidget)));
 				break;
 			case ScriptID.MESSAGE_LAYER_CLOSE:
-				eventBus.post(new MessageLayerClosedEvent(messageWidget, widgetBucket.isPmWidget(messageWidget)));
+				eventBus.post(new MessageLayerClosedEvent(messageWidget,
+					widgetBucket.isPmWidget(messageWidget)));
 				break;
 		}
 	}
 
-	@Subscribe
+	@Subscribe(priority = 1)
 	public void onClientTick(ClientTick e) {
+		chatProxy.refreshSystemWidgetActive();
+
+		// Poll dialog state every tick to catch changes missed by WidgetLoaded/WidgetClosed
+		// (e.g. game reusing widgets for the same NPC, or dialogs closing without events)
+		updateDialogState(0);
+
 		Widget chatWidget = widgetBucket.getChatWidget();
-		boolean visible = chatWidget != null && !chatWidget.isHidden() && !GeometryUtil.isInvalidChatBounds(chatWidget.getBounds());
+		boolean visible = chatWidget != null &&
+			!chatWidget.isHidden() && !GeometryUtil.isInvalidChatBounds(chatWidget.getBounds());
 		if (chatVisible.get() != visible) {
 			chatVisible.set(visible);
 			eventBus.post(new LegacyChatVisibilityChangeEvent(chatWidget, chatVisible.get()));
 		}
 	}
 
-	@Subscribe
+	@Subscribe(priority = 1)
 	public void onPostClientTick(PostClientTick e) {
 		// Poll once per tick but do nothing unless bounds changed
 		maybeReanchor(false);
@@ -437,20 +482,8 @@ public class ModernChatPlugin extends Plugin {
 			maybeReanchor(true);
 		}
 
-		if (e.getGroupId() == InterfaceID.CHAT_LEFT) {
-			eventBus.post(new LeftDialogOpenedEvent(widgetBucket.getDialogLeft()));
-		}
-		else if (e.getGroupId() == InterfaceID.CHAT_RIGHT) {
-			eventBus.post(new RightDialogOpenedEvent(widgetBucket.getDialogRight()));
-		}
-		else if (e.getGroupId() == InterfaceID.CHATMENU) {
-			eventBus.post(new DialogOptionsOpenedEvent(widgetBucket.getDialogOptions()));
-		}
-		else if (e.getGroupId() == InterfaceID.OBJECTBOX) {
-			// Object box uses the chatbox interface ID but is a different widget
-			// so we need to ensure the chatbox is visible when it loads
-			eventBus.post(new DialogOptionsOpenedEvent(widgetBucket.getDialogOptions()));
-		}
+		int groupId = e.getGroupId();
+		clientThread.invokeAtTickEnd(() -> updateDialogState(groupId));
 	}
 
 	@Subscribe
@@ -461,20 +494,9 @@ public class ModernChatPlugin extends Plugin {
 		else if (e.getGroupId() == InterfaceID.PM_CHAT) {
 			resetSplitPmAnchor();
 		}
-		else if (e.getGroupId() == InterfaceID.CHAT_LEFT) {
-			eventBus.post(new LeftDialogClosedEvent(widgetBucket.getDialogLeft()));
-		}
-		else if (e.getGroupId() == InterfaceID.CHAT_RIGHT) {
-			eventBus.post(new RightDialogClosedEvent(widgetBucket.getDialogRight()));
-		}
-		else if (e.getGroupId() == InterfaceID.CHATMENU) {
-			eventBus.post(new DialogOptionsClosedEvent(widgetBucket.getDialogOptions()));
-		}
-		else if (e.getGroupId() == InterfaceID.OBJECTBOX) {
-			// Object box uses the chatbox interface ID but is a different widget
-			// so we need to ensure the chatbox is visible when it loads
-			eventBus.post(new DialogOptionsClosedEvent(widgetBucket.getDialogOptions()));
-		}
+
+		int groupId = e.getGroupId();
+		clientThread.invokeAtTickEnd(() -> updateDialogState(groupId));
 	}
 
 	@Subscribe
@@ -482,6 +504,8 @@ public class ModernChatPlugin extends Plugin {
 		lastChatBounds = null;
 
 		if (e.getGameState() == GameState.LOGGED_IN && !loggedIn) {
+			chatOverlay.setLoginTime(Instant.now());
+
 			if (!config.featureExample_Enabled()) {
 				Player localPlayer = client.getLocalPlayer();
 				if (localPlayer != null) {
@@ -490,6 +514,11 @@ public class ModernChatPlugin extends Plugin {
 			}
 
 			loggedIn = true;
+		}
+
+		if (e.getGameState() == GameState.LOGIN_SCREEN || e.getGameState() == GameState.HOPPING) {
+			chatOverlay.setLoginTime(null);
+			loggedIn = false;
 		}
 	}
 
@@ -503,6 +532,17 @@ public class ModernChatPlugin extends Plugin {
 		if (chatProxy.isHidden() || !chatProxy.isTabOpen(e)) {
 			eventBus.post(new NotificationEvent(MESSAGE_RECEIVED,
 				e.getType(), e.getMessage(), true, isPrivate, chatProxy));
+		}
+	}
+
+	private void updateDialogState(int groupId) {
+		boolean isDialog = ClientUtil.isDialogOpen(client) || ClientUtil.isSystemWidgetActive(client);
+		if (dialogOpen.getAndSet(isDialog) != isDialog) {
+			if (isDialog) {
+				eventBus.post(new DialogOptionsOpenedEvent(groupId));
+			} else {
+				eventBus.post(new DialogOptionsClosedEvent(groupId));
+			}
 		}
 	}
 
@@ -627,31 +667,4 @@ public class ModernChatPlugin extends Plugin {
 		});
 	}
 
-	private void reloadKeyRemappingPlugin() {
-		// Prevent re-entry to avoid stack overflow
-		if (!keyRemapperReloading.compareAndSet(false, true)) {
-			return;
-		}
-
-		try {
-			for (Plugin plugin : pluginManager.getPlugins()) {
-				if (plugin.getClass().getSimpleName().equals("KeyRemappingPlugin")) {
-					try {
-						if (pluginManager.isPluginEnabled(plugin) && pluginManager.isPluginActive(plugin)) {
-							pluginManager.stopPlugin(plugin);
-							pluginManager.setPluginEnabled(plugin, false);
-							pluginManager.setPluginEnabled(plugin, true);
-							pluginManager.startPlugin(plugin);
-							log.debug("Reloaded KeyRemappingPlugin");
-						}
-					} catch (PluginInstantiationException e) {
-						log.error("Failed to reload KeyRemappingPlugin", e);
-					}
-					break;
-				}
-			}
-		} finally {
-			keyRemapperReloading.set(false);
-		}
-	}
 }

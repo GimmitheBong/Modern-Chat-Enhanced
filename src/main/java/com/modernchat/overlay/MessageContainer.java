@@ -22,14 +22,17 @@ import com.modernchat.util.FormatUtil;
 import com.modernchat.util.GeometryUtil;
 import com.modernchat.util.MathUtil;
 import com.modernchat.util.StringUtil;
+import com.modernchat.util.TextDrawUtil;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Point;
 import net.runelite.client.input.MouseListener;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.input.MouseWheelListener;
+import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -56,6 +59,7 @@ import java.util.Locale;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+@Slf4j
 public class MessageContainer extends Overlay
 {
     private static final int DEFAULT_MAX_LINES = 20;
@@ -116,6 +120,17 @@ public class MessageContainer extends Overlay
 
     public boolean isEnabled() {
         return config.isEnabled();
+    }
+
+    /**
+     * The container is treated as transparent when chrome is disabled (no backdrop drawn) or
+     * when the configured backdrop color is more than half-transparent. ForceRecolor uses this
+     * to choose between its opaque and transparent palettes for the matched group.
+     */
+    public boolean isTransparentBackdrop() {
+        if (!chromeEnabled) return true;
+        Color backdrop = config != null ? config.getBackdropColor() : null;
+        return backdrop == null || backdrop.getAlpha() < 128;
     }
 
     public void startUp(MessageContainerConfig config, ChatMode chatMode) {
@@ -203,6 +218,10 @@ public class MessageContainer extends Overlay
                     continue;
                 }
 
+                if (!config.isShowNpcMessages() && ChatUtil.isNpcMessage(rl.getType())) {
+                    continue;
+                }
+
                 // Channel filter check - only apply to containers with filters enabled (All tab)
                 if (applyChannelFilters && channelFilterState != null && !channelFilterState.shouldShowMessage(rl.getType())) {
                     continue;
@@ -271,13 +290,6 @@ public class MessageContainer extends Overlay
                         if (dx == left && (segText == null || segText.isBlank()))
                             continue;
 
-                        // Normal text
-                        int shadowOffset = config.getTextShadow();
-                        if (shadowOffset > 0) {
-                            g.setColor(config.getShadowColor());
-                            g.drawString(segText, dx + shadowOffset, y + shadowOffset);
-                        }
-
                         // Determine color: use config override if not transparent, else segment color
                         Color segColor = seg.getColor();
                         if (seg instanceof TimestampSegment) {
@@ -292,8 +304,10 @@ public class MessageContainer extends Overlay
                             }
                         }
 
-                        g.setColor(segColor);
-                        g.drawString(segText, dx, y);
+                        // Draw text with shadow or outline
+                        TextDrawUtil.drawTextWithShadow(g, segText, dx, y,
+                            segColor, config.getShadowColor(),
+                            config.getTextShadow(), config.getTextOutline());
 
                         dx += fm.stringWidth(segText);
                         if (dx > right)
@@ -355,8 +369,13 @@ public class MessageContainer extends Overlay
             lineFontStyle = config.getLineFontStyle();
             lineFont = null;
         }
-        if (lineFont == null)
+        if (lineFont == null) {
             lineFont = fontService.getFont(lineFontStyle != null ? lineFontStyle : FontStyle.RUNE);
+        }
+        if (lineFont == null) {
+            log.error("Line font not found, using default Runescape font");
+            return FontManager.getRunescapeFont();
+        }
         return lineFont;
     }
 
@@ -501,7 +520,7 @@ public class MessageContainer extends Overlay
         // Check ForceRecolor for message body color
         String messageToRender = s == null ? "" : s;
         if (forceRecolorService != null) {
-            Color forceColor = forceRecolorService.getRecolorForMessage(s, type, isPeekOverlay);
+            Color forceColor = forceRecolorService.getRecolorForMessage(s, type, isTransparentBackdrop());
             if (forceColor != null) {
                 // Apply ForceRecolor only to message body, sender gets base color
                 messageToRender = applyForceRecolorToBody(s, sender, baseColor, forceColor);

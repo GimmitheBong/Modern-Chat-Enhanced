@@ -20,6 +20,7 @@ import com.modernchat.overlay.ChatOverlay;
 import com.modernchat.overlay.ChatPeekOverlay;
 import com.modernchat.overlay.MessageContainer;
 import com.modernchat.overlay.MessageContainerConfig;
+import com.modernchat.service.MessageFilterService;
 import com.modernchat.util.ChatUtil;
 import com.modernchat.util.StringUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -67,18 +68,19 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 		FontStyle featurePeek_FontStyle();
 		int featurePeek_FontSize();
 		int featurePeek_TextShadow();
+		int featurePeek_TextOutline();
 		int featurePeek_Padding();
 		int featurePeek_OffsetX();
 		int featurePeek_OffsetY();
 		int featurePeek_MarginRight();
 		int featurePeek_MarginBottom();
 		boolean featurePeek_PrefixChatTypes();
+		boolean featurePeek_ShowNpcMessages();
 		boolean featurePeek_FadeEnabled();
 		int featurePeek_FadeDelay();
 		int featurePeek_FadeDuration();
 		String featurePeek_SourceTabKey();
 		boolean featurePeek_SuppressFadeAtGE();
-		boolean featureRedesign_ShowNpc();
 	}
 
 	@Inject private Client client;
@@ -89,6 +91,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 	@Inject private ChatOverlay chatOverlay;
 	@Inject private ConfigManager configManager;
 	@Inject private ChannelFilterState channelFilterState;
+	@Inject private MessageFilterService messageFilterService;
 
 	private final ModernChatConfig mainConfig;
 
@@ -111,6 +114,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public FontStyle featurePeek_FontStyle() { return config.featurePeek_FontStyle(); }
 			@Override public int featurePeek_FontSize() { return config.featurePeek_FontSize(); }
 			@Override public int featurePeek_TextShadow() { return config.featurePeek_TextShadow(); }
+			@Override public int featurePeek_TextOutline() { return config.featurePeek_TextOutline(); }
 			@Override public int featurePeek_Padding() { return config.featurePeek_Padding(); }
 			@Override public int featurePeek_OffsetX() { return config.featurePeek_OffsetX(); }
 			@Override public int featurePeek_OffsetY() { return config.featurePeek_OffsetY(); }
@@ -123,7 +127,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public int featurePeek_FadeDuration() { return config.featurePeek_FadeDuration(); }
 			@Override public String featurePeek_SourceTabKey() { return config.featurePeek_SourceTabKey(); }
 			@Override public boolean featurePeek_SuppressFadeAtGE() { return config.featurePeek_SuppressFadeAtGE(); }
-			@Override public boolean featureRedesign_ShowNpc() { return config.featureRedesign_ShowNpc(); }
+			@Override public boolean featurePeek_ShowNpcMessages() { return config.featurePeek_ShowNpcMessages(); }
 
 			public Color featurePeek_FriendsChatColor() { return config.general_FriendsChatColor(); }
 			public Color featurePeek_ClanChatColor() { return config.general_ClanChatColor(); }
@@ -143,6 +147,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public boolean isScrollable() { return false; } // Peek chat does not support scrolling
 			@Override public boolean isDrawScrollbar() { return false; }
 			@Override public boolean isShowPrivateMessages() { return cfg.featurePeek_ShowPrivateMessages(); }
+			@Override public boolean isShowNpcMessages() { return cfg.featurePeek_ShowNpcMessages(); }
 			@Override public boolean isFollowChatBox() { return cfg.featurePeek_FollowChatBox(); }
 			@Override public boolean isFadeEnabled() { return cfg.featurePeek_FadeEnabled(); }
 			@Override public int getFadeDelay() { return cfg.featurePeek_FadeDelay(); }
@@ -156,6 +161,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public FontStyle getLineFontStyle() { return cfg.featurePeek_FontStyle(); }
 			@Override public int getLineFontSize() { return cfg.featurePeek_FontSize(); }
 			@Override public int getTextShadow() { return cfg.featurePeek_TextShadow(); }
+			@Override public int getTextOutline() { return cfg.featurePeek_TextOutline(); }
 			@Override public Color getBackdropColor() { return cfg.featurePeek_BackgroundColor(); }
 			@Override public Color getBorderColor() { return cfg.featurePeek_BorderColor(); }
 			@Override public Color getShadowColor() { return super.getShadowColor(); }
@@ -242,13 +248,8 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 
 	@Subscribe(priority = -3) // run after ChatMessageManager
 	public void onChatMessage(ChatMessage e) {
-		// Never show SPAM messages
-		if (ChatUtil.isSpamMessage(e.getType())) {
-			return;
-		}
-
-		// Invoke chat filter check to let other plugins filter (and get collapsed message text)
-		String filteredMessage = ChatUtil.invokeChatFilterCheck(client, eventBus, e);
+		// Run message through filter service (replicates ChatFilterPlugin logic internally)
+		String filteredMessage = messageFilterService.filterMessage(e);
 		if (filteredMessage == null) {
 			return; // Message blocked by chat filter plugin
 		}
@@ -259,14 +260,14 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
             return; // Ignore empty messages
         }
 
-        // Respect the ShowNpc config
-        if (ChatUtil.isNpcMessage(line.getType()) && !config.featureRedesign_ShowNpc()) {
-            return;
-        }
-
         if (!shouldShowMessageForPeekSource(line)) {
             return;
         }
+
+		if (ChatUtil.isIgnoredMessage(line.getText(), line.getType())) {
+			log.debug("Ignoring message, type: {}, text: {}", line.getType(), line.getText());
+			return;
+		}
 
         log.debug("Chat message received: {}", line);
 		chatPeekOverlay.pushLine(line);

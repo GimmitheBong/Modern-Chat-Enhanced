@@ -11,14 +11,16 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ScriptID;
+import net.runelite.api.events.CommandExecuted;
+import net.runelite.api.events.ScriptCallbackEvent;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.EventBus;
-import net.runelite.api.events.ScriptCallbackEvent;
 import net.runelite.api.gameval.VarClientID;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -72,21 +74,18 @@ public class MessageService implements ChatService
             return;
         }
 
-        // Handle :: commands by triggering ChatInputManager via ScriptCallbackEvent
-        if (text.startsWith("::")) {
-            log.debug("Posting ScriptCallbackEvent for command: {}", text);
-
+        // Handle :: commands
+        if (text.trim().startsWith("::")) {
             clientThread.invoke(() -> {
-                // Set the chat input so ChatInputManager.runCommand() can read it
                 client.setVarcStrValue(VarClientID.CHATINPUT, text);
-
-                // Post ScriptCallbackEvent to trigger ChatInputManager
-                ScriptCallbackEvent event = new ScriptCallbackEvent();
-                event.setEventName("runeliteCommand");
-                eventBus.post(event);
+                String typedText = text.substring(2);
+                String[] split = typedText.split(" ");
+                if (split.length == 0)
+                    return;
+                String command = split[0];
+                String[] args = Arrays.copyOfRange(split, 1, split.length);
+                eventBus.post(new CommandExecuted(command, args));
             });
-
-            // Commands starting with :: are handled by plugins, don't send to game
             return;
         }
 
@@ -99,14 +98,10 @@ public class MessageService implements ChatService
             case FRIENDS_CHAT:
                 break;
             case CLAN_MAIN:
-                break;
             case CLAN_GUEST:
                 break;
-
-            // Custom
             case CLAN_GIM:
                 clanType = ClanType.IRONMAN;
-                selectedMode = ChatMode.CLAN_MAIN;
                 break;
             case PRIVATE:
                 if (StringUtil.isNullOrEmpty(targetName)) {
@@ -120,44 +115,11 @@ public class MessageService implements ChatService
         final int modeValue = selectedMode.getValue();
         final int clanTypeValue = clanType.getValue();
 
-        // Post chatboxInput ScriptCallbackEvent for other plugins to intercept
-        // ChatInputManager.handleInput() reads: objectStack[n-1]=text, intStack[n-2]=chatType, intStack[n-1]=clanTarget
-        final boolean[] consumed = {false};
-
         clientThread.invoke(() -> {
-            Object[] objectStack = client.getObjectStack();
-            int[] intStack = client.getIntStack();
-            int origObjectStackSize = client.getObjectStackSize();
-            int origIntStackSize = client.getIntStackSize();
-
-            objectStack[origObjectStackSize] = text;
-            intStack[origIntStackSize] = modeValue;
-            intStack[origIntStackSize + 1] = clanTypeValue;
-            client.setObjectStackSize(origObjectStackSize + 1);
-            client.setIntStackSize(origIntStackSize + 2);
-
-            log.debug("Posting ScriptCallbackEvent for chatboxInput: {}", text);
-            ScriptCallbackEvent chatboxEvent = new ScriptCallbackEvent();
-            chatboxEvent.setEventName("chatboxInput");
-            eventBus.post(chatboxEvent);
-
-            // Check if consumed (ChatInputManager sets objectStack[n-1] = "" if consumed)
-            consumed[0] = "".equals(objectStack[origObjectStackSize]);
-
-            // Restore stack sizes
-            client.setObjectStackSize(origObjectStackSize);
-            client.setIntStackSize(origIntStackSize);
-
-            if (!consumed[0]) {
-                client.runScript(ScriptID.CHAT_SEND, text, modeValue, clanTypeValue, 0, 0);
-                eventBus.post(new ChatMessageSentEvent(text, modeValue, clanTypeValue));
-            }
+            client.setVarcStrValue(VarClientID.CHATINPUT, text);
+            client.runScript(ScriptID.CHAT_SEND, text, modeValue, clanTypeValue, 0, 0);
+            eventBus.post(new ChatMessageSentEvent(text, modeValue, clanTypeValue));
         });
-
-        if (consumed[0]) {
-            log.debug("Message consumed by another plugin: {}", text);
-            return;
-        }
 
         lastSendTimestamp = System.currentTimeMillis();
     }
@@ -182,45 +144,11 @@ public class MessageService implements ChatService
             return;
         }
 
-        // Post privateMessage ScriptCallbackEvent for other plugins to intercept
-        // ChatInputManager.handlePrivateMessage() reads: objectStack[n-2]=target, objectStack[n-1]=message
-        final boolean[] consumed = {false};
-
         clientThread.invoke(() -> {
-            Object[] objectStack = client.getObjectStack();
-            int[] intStack = client.getIntStack();
-            int origObjectStackSize = client.getObjectStackSize();
-            int origIntStackSize = client.getIntStackSize();
-
-            objectStack[origObjectStackSize] = targetName;
-            objectStack[origObjectStackSize + 1] = text;
-            intStack[origIntStackSize] = 0; // ChatInputManager checks intStack[n-1] for consumed flag
-            client.setObjectStackSize(origObjectStackSize + 2);
-            client.setIntStackSize(origIntStackSize + 1);
-
-            log.debug("Posting ScriptCallbackEvent for privateMessage: {} -> {}", targetName, text);
-            ScriptCallbackEvent privateMessageEvent = new ScriptCallbackEvent();
-            privateMessageEvent.setEventName("privateMessage");
-            eventBus.post(privateMessageEvent);
-
-            // Check if consumed (ChatInputManager sets intStack[n-1] = 1 if consumed)
-            consumed[0] = intStack[origIntStackSize] == 1;
-
-            // Restore stack sizes
-            client.setObjectStackSize(origObjectStackSize);
-            client.setIntStackSize(origIntStackSize);
-
-            if (!consumed[0]) {
-                client.runScript(ScriptID.PRIVMSG, targetName, text);
-                eventBus.post(new SubmitHistoryEvent(text));
-                eventBus.post(new ChatPrivateMessageSentEvent(text, targetName));
-            }
+            client.runScript(ScriptID.PRIVMSG, targetName, text);
+            eventBus.post(new SubmitHistoryEvent(text));
+            eventBus.post(new ChatPrivateMessageSentEvent(text, targetName));
         });
-
-        if (consumed[0]) {
-            log.debug("Private message consumed by another plugin: {}", text);
-            return;
-        }
 
         lastSendTimestamp = System.currentTimeMillis();
     }

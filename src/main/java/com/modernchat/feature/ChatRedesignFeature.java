@@ -5,6 +5,7 @@ import com.modernchat.ModernChatConfig;
 import com.modernchat.ModernChatConfigBase;
 import com.modernchat.common.ChatMessageBuilder;
 import com.modernchat.common.ChatMode;
+import com.modernchat.common.ChatProxy;
 import com.modernchat.common.FontStyle;
 import com.modernchat.common.MessageLine;
 import com.modernchat.common.NotificationService;
@@ -22,6 +23,7 @@ import com.modernchat.overlay.ChatOverlay;
 import com.modernchat.overlay.ChatOverlayConfig;
 import com.modernchat.overlay.MessageContainer;
 import com.modernchat.overlay.MessageContainerConfig;
+import com.modernchat.service.MessageFilterService;
 import com.modernchat.service.MessageService;
 import com.modernchat.util.ChatUtil;
 import lombok.Getter;
@@ -70,16 +72,16 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         boolean featureRedesign_Enabled();
         boolean featureRedesign_OpenTabOnIncomingPM();
         boolean featureRedesign_ClickOutsideToClose();
+        boolean featureRedesign_PreserveFocusOnOutsideClick();
         boolean featureRedesign_ShowNotificationBadge();
         boolean featureRedesign_AllowClickThrough();
         boolean featureRedesign_AutoSelectPrivateTab();
         boolean featureRedesign_Resizeable();
         boolean featureRedesign_ShowNpc();
-        boolean featureRedesign_ClassicMode();
-        boolean featureRedesign_ClassicMode_AllowPmTabs();
-        boolean featureRedesign_ClassicMode_ShowUnread();
+        boolean featureRedesign_AutoClosePrivateTab();
         boolean featureRedesign_GameTabEnabled();
         boolean featureRedesign_TradeTabEnabled();
+        boolean featureRedesign_ShowTabIcons();
         ChatMode featureRedesign_DefaultChatMode();
         FontStyle featureRedesign_FontStyle();
         int featureRedesign_Padding();
@@ -107,6 +109,14 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         Color featureRedesign_TabCloseButtonColor();
         Color featureRedesign_TabCloseButtonTextColor();
         Color featureRedesign_FilterButtonColor();
+        Color featureRedesign_FilterPopupBackgroundColor();
+        Color featureRedesign_FilterPopupBorderColor();
+        Color featureRedesign_FilterPopupTextColor();
+        Color featureRedesign_FilterPopupCheckboxColor();
+        Color featureRedesign_FilterPopupCheckmarkColor();
+        int featureRedesign_ReportButtonFontSize();
+        Color featureRedesign_ReportButtonColor();
+        Color featureRedesign_ReportButtonTextColor();
 
         // MessageContainerConfig
         boolean featureRedesign_MessageContainer_PrefixChatType();
@@ -126,6 +136,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         FontStyle featureRedesign_MessageContainer_LineFontStyle();
         int featureRedesign_MessageContainer_LineFontSize();
         int featureRedesign_MessageContainer_TextShadow();
+        int featureRedesign_MessageContainer_TextOutline();
         Color featureRedesign_MessageContainer_BackdropColor();
         Color featureRedesign_MessageContainer_BorderColor();
         Color featureRedesign_MessageContainer_ShadowColor();
@@ -141,9 +152,11 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
     @Inject private OverlayManager overlayManager;
     @Inject private WidgetBucket widgetBucket;
     @Inject private MessageService messageService;
+    @Inject private MessageFilterService messageFilterService;
     @Inject private NotificationService notificationService;
     @Inject private ChatOverlay overlay;
     @Inject private ChannelFilterState channelFilterState;
+    @Inject private ChatProxy chatProxy;
 
     private final ModernChatConfig mainConfig;
     private static final String CHANNEL_FILTER_PREFIX = "channelFilter_";
@@ -169,16 +182,16 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public boolean featureRedesign_Enabled() { return cfg.featureRedesign_Enabled(); }
             @Override public boolean featureRedesign_OpenTabOnIncomingPM() { return cfg.featureRedesign_OpenTabOnIncomingPM(); }
             @Override public boolean featureRedesign_ClickOutsideToClose() { return cfg.featureRedesign_ClickOutsideToClose(); }
+            @Override public boolean featureRedesign_PreserveFocusOnOutsideClick() { return cfg.featureRedesign_PreserveFocusOnOutsideClick(); }
             @Override public boolean featureRedesign_ShowNotificationBadge() { return cfg.featureRedesign_ShowNotificationBadge(); }
             @Override public boolean featureRedesign_AllowClickThrough() { return cfg.featureRedesign_AllowClickThrough(); }
             @Override public boolean featureRedesign_AutoSelectPrivateTab() { return cfg.featureRedesign_AutoSelectPrivateTab(); }
             @Override public boolean featureRedesign_Resizeable() { return cfg.featureRedesign_Resizeable(); }
             @Override public boolean featureRedesign_ShowNpc() { return cfg.featureRedesign_ShowNpc(); }
-            @Override public boolean featureRedesign_ClassicMode() { return cfg.featureRedesign_ClassicMode(); }
-            @Override public boolean featureRedesign_ClassicMode_AllowPmTabs() { return cfg.featureRedesign_ClassicMode_AllowPmTabs(); }
-            @Override public boolean featureRedesign_ClassicMode_ShowUnread() { return cfg.featureRedesign_ClassicMode_ShowUnread(); }
+            @Override public boolean featureRedesign_AutoClosePrivateTab() { return cfg.featureRedesign_AutoClosePrivateTab(); }
             @Override public boolean featureRedesign_GameTabEnabled() { return cfg.featureRedesign_GameTabEnabled(); }
             @Override public boolean featureRedesign_TradeTabEnabled() { return cfg.featureRedesign_TradeTabEnabled(); }
+            @Override public boolean featureRedesign_ShowTabIcons() { return cfg.featureRedesign_ShowTabIcons(); }
             @Override public FontStyle featureRedesign_FontStyle() { return cfg.featureRedesign_FontStyle(); }
             @Override public int featureRedesign_Padding() { return cfg.featureRedesign_Padding(); }
             @Override public int featureRedesign_InputFontSize() { return cfg.featureRedesign_InputFontSize(); }
@@ -205,6 +218,14 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public Color featureRedesign_TabCloseButtonColor() { return cfg.featureRedesign_TabCloseButtonColor(); }
             @Override public Color featureRedesign_TabCloseButtonTextColor() { return cfg.featureRedesign_TabCloseButtonTextColor(); }
             @Override public Color featureRedesign_FilterButtonColor() { return cfg.featureRedesign_FilterButtonColor(); }
+            @Override public Color featureRedesign_FilterPopupBackgroundColor() { return cfg.featureRedesign_FilterPopupBackgroundColor(); }
+            @Override public Color featureRedesign_FilterPopupBorderColor() { return cfg.featureRedesign_FilterPopupBorderColor(); }
+            @Override public Color featureRedesign_FilterPopupTextColor() { return cfg.featureRedesign_FilterPopupTextColor(); }
+            @Override public Color featureRedesign_FilterPopupCheckboxColor() { return cfg.featureRedesign_FilterPopupCheckboxColor(); }
+            @Override public Color featureRedesign_FilterPopupCheckmarkColor() { return cfg.featureRedesign_FilterPopupCheckmarkColor(); }
+            @Override public int featureRedesign_ReportButtonFontSize() { return cfg.featureRedesign_ReportButtonFontSize(); }
+            @Override public Color featureRedesign_ReportButtonColor() { return cfg.featureRedesign_ReportButtonColor(); }
+            @Override public Color featureRedesign_ReportButtonTextColor() { return cfg.featureRedesign_ReportButtonTextColor(); }
             @Override public ChatMode featureRedesign_DefaultChatMode() { return cfg.featureRedesign_DefaultChatMode(); }
             @Override public boolean featureRedesign_MessageContainer_PrefixChatType() { return cfg.featureRedesign_MessageContainer_PrefixChatType(); }
             @Override public boolean featureRedesign_MessageContainer_ShowTimestamp() { return cfg.featureRedesign_MessageContainer_ShowTimestamp(); }
@@ -223,6 +244,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public FontStyle featureRedesign_MessageContainer_LineFontStyle() { return cfg.featureRedesign_MessageContainer_LineFontStyle(); }
             @Override public int featureRedesign_MessageContainer_LineFontSize() { return cfg.featureRedesign_MessageContainer_LineFontSize(); }
             @Override public int featureRedesign_MessageContainer_TextShadow() { return cfg.featureRedesign_MessageContainer_TextShadow(); }
+            @Override public int featureRedesign_MessageContainer_TextOutline() { return cfg.featureRedesign_MessageContainer_TextOutline(); }
             @Override public Color featureRedesign_MessageContainer_BackdropColor() { return cfg.featureRedesign_MessageContainer_BackdropColor(); }
             @Override public Color featureRedesign_MessageContainer_BorderColor() { return cfg.featureRedesign_MessageContainer_BorderColor(); }
             @Override public Color featureRedesign_MessageContainer_ShadowColor() { return cfg.featureRedesign_MessageContainer_ShadowColor(); }
@@ -237,7 +259,6 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         return new ChatOverlayConfig.Default() {
             @Override public boolean isEnabled() { return cfg.featureRedesign_Enabled(); }
             @Override public boolean isHideOnSend() { return mainConfig.featureToggle_AutoHideOnSend(); }
-            @Override public boolean isHideOnEscape() { return mainConfig.featureToggle_EscapeHides(); }
             @Override public boolean isStartHidden() { return mainConfig.featureToggle_StartHidden(); }
             @Override public boolean isShowNotificationBadge() { return cfg.featureRedesign_ShowNotificationBadge(); }
             @Override public boolean isAllowClickThrough() { return cfg.featureRedesign_AllowClickThrough(); }
@@ -247,12 +268,12 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public Padding getPadding() { return new Padding(cfg.featureRedesign_Padding()); }
             @Override public boolean isOpenTabOnIncomingPM() { return cfg.featureRedesign_OpenTabOnIncomingPM(); }
             @Override public boolean isClickOutsideToClose() { return cfg.featureRedesign_ClickOutsideToClose(); }
+            @Override public boolean isPreserveFocusOnOutsideClick() { return cfg.featureRedesign_PreserveFocusOnOutsideClick(); }
             @Override public ChatMode getDefaultChatMode() { return cfg.featureRedesign_DefaultChatMode(); }
-            @Override public boolean isClassicMode() { return cfg.featureRedesign_ClassicMode(); }
-            @Override public boolean isClassicModeAllowPmTabs() { return cfg.featureRedesign_ClassicMode_AllowPmTabs(); }
-            @Override public boolean isClassicModeShowUnread() { return cfg.featureRedesign_ClassicMode_ShowUnread(); }
+            @Override public boolean isAutoClosePrivateTab() { return cfg.featureRedesign_AutoClosePrivateTab(); }
             @Override public boolean isGameTabEnabled() { return cfg.featureRedesign_GameTabEnabled(); }
             @Override public boolean isTradeTabEnabled() { return cfg.featureRedesign_TradeTabEnabled(); }
+            @Override public boolean isShowTabIcons() { return cfg.featureRedesign_ShowTabIcons(); }
             @Override public int getInputFontSize() { return cfg.featureRedesign_InputFontSize(); }
             @Override public Color getBackdropColor() { return cfg.featureRedesign_BackdropColor(); }
             @Override public Color getBorderColor() { return cfg.featureRedesign_BorderColor(); }
@@ -277,6 +298,14 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
             @Override public Color getTabCloseButtonColor() { return cfg.featureRedesign_TabCloseButtonColor(); }
             @Override public Color getTabCloseButtonTextColor() { return cfg.featureRedesign_TabCloseButtonTextColor(); }
             @Override public Color getFilterButtonColor() { return cfg.featureRedesign_FilterButtonColor(); }
+            @Override public Color getFilterPopupBackgroundColor() { return cfg.featureRedesign_FilterPopupBackgroundColor(); }
+            @Override public Color getFilterPopupBorderColor() { return cfg.featureRedesign_FilterPopupBorderColor(); }
+            @Override public Color getFilterPopupTextColor() { return cfg.featureRedesign_FilterPopupTextColor(); }
+            @Override public Color getFilterPopupCheckboxColor() { return cfg.featureRedesign_FilterPopupCheckboxColor(); }
+            @Override public Color getFilterPopupCheckmarkColor() { return cfg.featureRedesign_FilterPopupCheckmarkColor(); }
+            @Override public int getReportButtonFontSize() { return cfg.featureRedesign_ReportButtonFontSize(); }
+            @Override public Color getReportButtonColor() { return cfg.featureRedesign_ReportButtonColor(); }
+            @Override public Color getReportButtonTextColor() { return cfg.featureRedesign_ReportButtonTextColor(); }
 
             @Override public MessageContainerConfig getMessageContainerConfig() { return containerConfig; }
 
@@ -316,6 +345,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
                 @Override public boolean isShowTimestamp() { return cfg.featureRedesign_MessageContainer_ShowTimestamp(); }
                 @Override public boolean isScrollable() { return cfg.featureRedesign_MessageContainer_Scrollable(); }
                 @Override public boolean isDrawScrollbar() { return cfg.featureRedesign_MessageContainer_DrawScrollbar(); }
+                @Override public boolean isShowNpcMessages() { return cfg.featureRedesign_ShowNpc(); }
                 @Override public Point getOffset() { return new Point(cfg.featureRedesign_MessageContainer_OffsetX(), cfg.featureRedesign_MessageContainer_OffsetY()); }
                 @Override public Margin getMargin() { return new Margin(cfg.featureRedesign_MessageContainer_Margin()); }
                 @Override public Padding getPadding() { return new Padding(cfg.featureRedesign_MessageContainer_PaddingTop(), cfg.featureRedesign_MessageContainer_PaddingBottom(), cfg.featureRedesign_MessageContainer_PaddingLeft(), cfg.featureRedesign_MessageContainer_PaddingRight()); }
@@ -325,6 +355,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
                 @Override public FontStyle getLineFontStyle() { return cfg.featureRedesign_MessageContainer_LineFontStyle(); }
                 @Override public int getLineFontSize() { return cfg.featureRedesign_MessageContainer_LineFontSize(); }
                 @Override public int getTextShadow() { return cfg.featureRedesign_MessageContainer_TextShadow(); }
+                @Override public int getTextOutline() { return cfg.featureRedesign_MessageContainer_TextOutline(); }
                 @Override public Color getBackdropColor() { return cfg.featureRedesign_MessageContainer_BackdropColor(); }
                 @Override public Color getBorderColor() { return cfg.featureRedesign_MessageContainer_BorderColor(); }
                 @Override public Color getShadowColor() { return cfg.featureRedesign_MessageContainer_ShadowColor(); }
@@ -415,9 +446,7 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
         overlay.dirty();
 
         // Refresh tabs when tab settings change
-        if (key.equals(ModernChatConfigBase.Keys.featureRedesign_ClassicMode)
-         || key.equals(ModernChatConfigBase.Keys.featureRedesign_ClassicMode_AllowPmTabs)
-         || key.equals(ModernChatConfigBase.Keys.featureRedesign_ClassicMode_ShowUnread)
+        if (key.equals(ModernChatConfigBase.Keys.featureRedesign_AutoClosePrivateTab)
          || key.equals(ModernChatConfigBase.Keys.featureRedesign_GameTabEnabled)
          || key.equals(ModernChatConfigBase.Keys.featureRedesign_TradeTabEnabled))
         {
@@ -504,26 +533,23 @@ public class ChatRedesignFeature extends AbstractChatFeature<ChatRedesignFeature
 
     @Subscribe(priority = -3) // run after ChatMessageManager
     public void onChatMessage(ChatMessage e) {
-        // Never show SPAM messages
-        if (ChatUtil.isSpamMessage(e.getType())) {
-            return;
-        }
-
-        // Invoke chat filter check to let other plugins filter
-        String filteredMessage = ChatUtil.invokeChatFilterCheck(client, eventBus, e);
+        // Run message through filter service (replicates ChatFilterPlugin logic internally)
+        String filteredMessage = messageFilterService.filterMessage(e);
         if (filteredMessage == null) {
             log.debug("Message blocked by chat filter plugin");
             return;
         }
-
-        if (ChatUtil.isNpcMessage(e) && !config.featureRedesign_ShowNpc())
-            return;
 
         // Use the filtered message text
         MessageLine line = ChatUtil.createMessageLine(e, client, false, filteredMessage);
         if (line == null) {
             log.error("Failed to parse chat message event: {}", e);
             return; // Ignore empty messages
+        }
+
+        if (ChatUtil.isIgnoredMessage(line.getText(), line.getType())) {
+            log.debug("Ignoring message, type: {}, text: {}", line, line);
+            return;
         }
 
         log.debug("Chat message received: {}", line);

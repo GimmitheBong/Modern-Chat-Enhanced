@@ -21,6 +21,8 @@ public interface MessageContainerConfig extends ChatColors
     boolean isDrawScrollbar();
 
     boolean isShowPrivateMessages();
+    
+    boolean isShowNpcMessages();
 
     boolean isFollowChatBox();
 
@@ -45,6 +47,8 @@ public interface MessageContainerConfig extends ChatColors
     int getLineFontSize();
 
     int getTextShadow();
+
+    default int getTextOutline() { return 0; }
 
     Color getBackdropColor();
 
@@ -93,6 +97,11 @@ public interface MessageContainerConfig extends ChatColors
 
         @Override
         public boolean isShowPrivateMessages() {
+            return true;
+        }
+
+        @Override
+        public boolean isShowNpcMessages() {
             return true;
         }
 

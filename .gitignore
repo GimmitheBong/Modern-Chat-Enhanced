@@ -10,3 +10,15 @@ nbproject/
 research/
 nul
 .claude/
+dev.gradle
+
+# agent-cohort: managed dock runtime paths (auto-added)
+.claude/agent-cohort/
+.codex/agent-cohort/
+.hermes/agent-cohort/
+.claude/worktrees/
+.cohort/
+.agent/
+.codex/hooks.json
+.linked-*
+.mcp.json

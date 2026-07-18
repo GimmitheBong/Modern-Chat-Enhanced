@@ -1,8 +1,11 @@
 package com.modernchat.common;
 
 import com.modernchat.overlay.ChatOverlay;
+import com.modernchat.service.MessageService;
 import com.modernchat.util.ChatUtil;
 import com.modernchat.util.ClientUtil;
+import lombok.Getter;
+import lombok.Setter;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.events.ChatMessage;
@@ -14,6 +17,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Singleton
@@ -23,8 +27,13 @@ public class ChatProxy
     @Inject private ChatOverlay modernChat;
     @Inject private Client client;
     @Inject private ClientThread clientThread;
+    @Inject private MessageService messageService;
 
-    private static final AtomicBoolean syncingKeyRemapper = new AtomicBoolean(false);
+    private final AtomicBoolean systemWidgetActive = new AtomicBoolean(false);
+
+    @Getter
+    @Setter
+    private boolean autoHide = false;
 
     public boolean isHidden() {
         if (modernChat.isEnabled())
@@ -47,6 +56,13 @@ public class ChatProxy
         return modernChat.isHidden();
     }
 
+    public boolean isCommandMode() {
+        if (modernChat.isEnabled())
+            return modernChat.isCommandMode();
+
+        return false;
+    }
+
     public @Nullable Rectangle getBounds() {
         if (modernChat.isEnabled())
             return modernChat.getViewPort();
@@ -60,8 +76,12 @@ public class ChatProxy
     }
 
     public void clearInput(Runnable callback) {
+        clearInput(callback, true);
+    }
+
+    public void clearInput(Runnable callback, boolean sync) {
         if (modernChat.isEnabled()) {
-            modernChat.clearInputText(true);
+            modernChat.clearInputText(sync);
             callback.run();
         } else {
             ClientUtil.clearChatInput(client, clientThread, callback);
@@ -95,8 +115,6 @@ public class ChatProxy
     }
 
     public void setHidden(boolean hidden) {
-        syncKeyRemapperState(client, hidden);
-
         if (modernChat.isEnabled()) {
             modernChat.setHidden(hidden);
         } else {
@@ -106,29 +124,6 @@ public class ChatProxy
                 client.refreshChat();
             }
         }
-    }
-
-    public static void syncKeyRemapperState(Client client, boolean hiding) {
-        // Prevent re-entry to avoid stack overflow from simulated key events
-        if (!syncingKeyRemapper.compareAndSet(false, true)) {
-            return;
-        }
-
-        try {
-            if (hiding) {
-                if (!ClientUtil.isChatLocked(client))
-                    ClientUtil.simulateEscapeKey(client);
-            } else {
-                if (ClientUtil.isChatLocked(client))
-                    ClientUtil.simulateSlashKey(client);
-            }
-        } finally {
-            syncingKeyRemapper.set(false);
-        }
-    }
-
-    public static boolean isSyncingKeyRemapper() {
-        return syncingKeyRemapper.get();
     }
 
     public boolean isTabOpen(ChatMessage msg) {
@@ -162,5 +157,29 @@ public class ChatProxy
 
     public boolean isLegacy() {
         return modernChat == null || !modernChat.isEnabled() || modernChat.isLegacyShowing();
+    }
+
+    public boolean submitInput(KeyEvent keyEvent) {
+        if (modernChat.isEnabled()) {
+            return modernChat.submitInput(keyEvent);
+        } else {
+            //messageService.sendMessage(client, keyEvent);
+        }
+        return false;
+    }
+
+    /**
+     * Thread-safe snapshot of {@link ClientUtil#isSystemWidgetActive(Client)}.
+     * Updated every client tick via {@code refreshSystemWidgetActive()}.
+     */
+    public boolean isSystemWidgetActive() {
+        return systemWidgetActive.get();
+    }
+
+    /**
+     * Must be called on the client thread (e.g. from onClientTick).
+     */
+    public void refreshSystemWidgetActive() {
+        systemWidgetActive.set(ClientUtil.isSystemWidgetActive(client));
     }
 }

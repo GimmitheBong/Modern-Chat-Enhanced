@@ -16,17 +16,19 @@ public interface ChatOverlayConfig
 
     boolean isHideOnSend();
 
-    boolean isHideOnEscape();
-
     boolean isOpenTabOnIncomingPM();
 
     boolean isClickOutsideToClose();
+
+    boolean isPreserveFocusOnOutsideClick();
 
     boolean isShowNotificationBadge();
 
     boolean isAllowClickThrough();
 
     boolean isAutoSelectPrivateTab();
+
+    boolean isAutoClosePrivateTab();
 
     boolean isResizeable();
 
@@ -84,19 +86,31 @@ public interface ChatOverlayConfig
 
     ChatMode getDefaultChatMode();
 
-    boolean isClassicMode();
-
-    boolean isClassicModeAllowPmTabs();
-
-    boolean isClassicModeShowUnread();
-
     boolean isGameTabEnabled();
 
     boolean isTradeTabEnabled();
 
+    boolean isShowTabIcons();
+
     MessageContainerConfig getMessageContainerConfig();
 
     Color getFilterButtonColor();
+
+    Color getFilterPopupBackgroundColor();
+
+    Color getFilterPopupBorderColor();
+
+    Color getFilterPopupTextColor();
+
+    Color getFilterPopupCheckboxColor();
+
+    Color getFilterPopupCheckmarkColor();
+
+    int getReportButtonFontSize();
+
+    Color getReportButtonColor();
+
+    Color getReportButtonTextColor();
 
     // Channel filter methods - filters are stored as a bitmask integer per ChatMode
     // A set bit means the filter type is DISABLED (hidden)
@@ -159,11 +173,6 @@ public interface ChatOverlayConfig
         }
 
         @Override
-        public boolean isHideOnEscape() {
-            return true;
-        }
-
-        @Override
         public boolean isOpenTabOnIncomingPM() {
             return false;
         }
@@ -171,6 +180,11 @@ public interface ChatOverlayConfig
         @Override
         public boolean isClickOutsideToClose() {
             return false;
+        }
+
+        @Override
+        public boolean isPreserveFocusOnOutsideClick() {
+            return true;
         }
 
         @Override
@@ -329,17 +343,7 @@ public interface ChatOverlayConfig
         }
 
         @Override
-        public boolean isClassicMode() {
-            return false;
-        }
-
-        @Override
-        public boolean isClassicModeAllowPmTabs() {
-            return false;
-        }
-
-        @Override
-        public boolean isClassicModeShowUnread() {
+        public boolean isAutoClosePrivateTab() {
             return false;
         }
 
@@ -354,12 +358,57 @@ public interface ChatOverlayConfig
         }
 
         @Override
+        public boolean isShowTabIcons() {
+            return true;
+        }
+
+        @Override
         public MessageContainerConfig getMessageContainerConfig() {
             return new MessageContainerConfig.Default();
         }
 
         @Override
         public Color getFilterButtonColor() {
+            return Color.WHITE;
+        }
+
+        @Override
+        public Color getFilterPopupBackgroundColor() {
+            return new Color(35, 35, 35, 240);
+        }
+
+        @Override
+        public Color getFilterPopupBorderColor() {
+            return new Color(80, 80, 80);
+        }
+
+        @Override
+        public Color getFilterPopupTextColor() {
+            return Color.WHITE;
+        }
+
+        @Override
+        public Color getFilterPopupCheckboxColor() {
+            return new Color(40, 40, 40);
+        }
+
+        @Override
+        public Color getFilterPopupCheckmarkColor() {
+            return new Color(100, 200, 100);
+        }
+
+        @Override
+        public int getReportButtonFontSize() {
+            return -1;
+        }
+
+        @Override
+        public Color getReportButtonColor() {
+            return new Color(180, 40, 40);
+        }
+
+        @Override
+        public Color getReportButtonTextColor() {
             return Color.WHITE;
         }
 

@@ -9,11 +9,10 @@ import net.runelite.api.MenuAction;
 import net.runelite.api.MessageNode;
 import net.runelite.api.Player;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.ScriptCallbackEvent;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.eventbus.EventBus;
+import lombok.Value;
 import net.runelite.client.util.ColorUtil;
-import org.apache.commons.lang3.tuple.Pair;
+import net.runelite.client.util.Text;
 
 import javax.annotation.Nullable;
 import java.awt.Color;
@@ -33,6 +32,23 @@ import java.util.regex.Pattern;
 public class ChatUtil
 {
     public static final AtomicBoolean LEGACY_CHAT_HIDDEN = new AtomicBoolean(false);
+    public static final String MODERN_CHAT_TAG = "[ModernChat]";
+    public static final String COMMAND_MODE_MESSAGE = "Command Mode (Modern chat will be restored once you send or cancel the command)";
+
+    private static final Pattern IMG_TAG_PATTERN = Pattern.compile("<img=(\\d+)>");
+
+    @Value
+    public static class SenderReceiver {
+        String senderName;
+        String receiverName;
+        int senderIconId; // -1 if none
+    }
+
+    public static int extractIconId(@Nullable String name) {
+        if (name == null || name.isEmpty()) return -1;
+        Matcher m = IMG_TAG_PATTERN.matcher(name);
+        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
 
     public static boolean isPrivateMessage(ChatMessageType t) {
         return t == ChatMessageType.PRIVATECHAT
@@ -142,32 +158,44 @@ public class ChatUtil
             || type == ChatMessageType.FRIENDSCHATNOTIFICATION;
     }
 
-    public static Pair<String, String> getSenderAndReceiver(ChatMessage msg, String localPlayerName) {
+    public static SenderReceiver getSenderAndReceiver(ChatMessage msg, String localPlayerName) {
         String receiverName = null;
         String senderName = msg.getSender();
         String name = msg.getName();
         ChatMessageType type = msg.getType();
 
+        // Extract icon ID from the raw name *before* stripping tags
+        int senderIconId = -1;
+
         if (type == ChatMessageType.PRIVATECHATOUT) {
-            receiverName = name;
+            // For outgoing PMs, the "name" is the receiver - no sender icon
+            receiverName = name != null ? Text.removeTags(name) : null;
             senderName = "You";
         }
         else if (type == ChatMessageType.PRIVATECHAT) {
+            // For incoming PMs, the "name" is the sender - extract their icon
+            senderIconId = extractIconId(name);
             receiverName = localPlayerName;
-            senderName = name;
+            senderName = name != null ? Text.removeTags(name) : null;
         }
         else if (ChatUtil.isClanMessage(type) || ChatUtil.isFriendsChatMessage(type)) {
-            senderName = name;
+            senderIconId = extractIconId(name);
+            senderName = name != null ? Text.removeTags(name) : null;
         }
         else if (senderName == null) {
-            senderName = name;
+            senderIconId = extractIconId(name);
+            senderName = name != null ? Text.removeTags(name) : null;
+        }
+        else {
+            senderIconId = extractIconId(senderName);
+            senderName = Text.removeTags(senderName);
         }
 
         if (receiverName == null) {
             receiverName = localPlayerName;
         }
 
-        return Pair.of(senderName, receiverName);
+        return new SenderReceiver(senderName, receiverName, senderIconId);
     }
 
     public static String getCustomPrefix(ChatMessage msg) {
@@ -240,18 +268,19 @@ public class ChatUtil
                 return null;
         }
 
-        // Server timestamp is in seconds, convert to milliseconds for local time formatting
-        long timestamp = e.getTimestamp() > 0 ? e.getTimestamp() * 1000L : System.currentTimeMillis();
+        // Use local system time so timestamps reflect the player's clock, not the server's
+        long timestamp = System.currentTimeMillis();
 
-        Pair<String, String> senderReceiver = ChatUtil.getSenderAndReceiver(e, localPlayerName);
+        SenderReceiver senderReceiver = ChatUtil.getSenderAndReceiver(e, localPlayerName);
 
         ChatMessageType type = e.getType();
         String originalMsg = e.getMessage();
         // Use filtered message if provided, otherwise use original
         String msg = filteredMessage != null ? filteredMessage : originalMsg;
         String[] params = msg.split("\\|", 3);
-        String receiverName = senderReceiver.getRight();
-        String senderName = senderReceiver.getLeft();
+        String receiverName = senderReceiver.getReceiverName();
+        String senderName = senderReceiver.getSenderName();
+        int senderIconId = senderReceiver.getSenderIconId();
         String prefix = ChatUtil.getCustomPrefix(e);
 
         if (type == ChatMessageType.DIALOG) {
@@ -287,7 +316,7 @@ public class ChatUtil
             && COLLAPSE_PATTERN.matcher(filteredMessage).find()
             && !originalMsg.equals(filteredMessage); // only if filtered differs from original
 
-        return new MessageLine(builder.build(), type, timestamp, senderName, receiverName, prefix, duplicateKey, collapsed);
+        return new MessageLine(builder.build(), type, timestamp, senderName, receiverName, prefix, duplicateKey, collapsed, senderIconId);
     }
 
     public static String getPrefix(ChatMessageType type) {
@@ -341,54 +370,11 @@ public class ChatUtil
         return type == ChatMessageType.SPAM;
     }
 
-    private static final String SCRIPT_EVENT_CHAT_FILTER_CHECK = "chatFilterCheck";
+    public static boolean isModernChatMessage(String message) {
+        return message != null && Text.removeTags(message).startsWith(MODERN_CHAT_TAG);
+    }
 
-    /**
-     * Invoke chatFilterCheck by posting a ScriptCallbackEvent.
-     * This allows ChatFilterPlugin and other filter plugins to process the message.
-     *
-     * @param client the game client
-     * @param eventBus the event bus to post the callback event
-     * @param e the chat message to check
-     * @return the filtered message text, or null if message should be blocked
-     */
-    public static @Nullable String invokeChatFilterCheck(Client client, EventBus eventBus, ChatMessage e) {
-        int[] intStack = client.getIntStack();
-        int intStackSize = client.getIntStackSize();
-        Object[] objectStack = client.getObjectStack();
-        int objectStackSize = client.getObjectStackSize();
-
-        // Set up stack: [filterResult, messageType, messageId]
-        // filterResult starts as 1 (show), plugins set to 0 to block
-        client.setIntStackSize(intStackSize + 3);
-        intStack[intStackSize] = 1; // filter result - default show
-        intStack[intStackSize + 1] = e.getType().getType(); // message type
-        intStack[intStackSize + 2] = e.getMessageNode().getId(); // message id
-
-        // Set up object stack with message text
-        client.setObjectStackSize(objectStackSize + 1);
-        objectStack[objectStackSize] = e.getMessage();
-
-        // Fire the callback event for other plugins to process
-        ScriptCallbackEvent callbackEvent = new ScriptCallbackEvent();
-        callbackEvent.setEventName(SCRIPT_EVENT_CHAT_FILTER_CHECK);
-        eventBus.post(callbackEvent);
-
-        // Read the filter result (plugins may have set it to 0 to block)
-        int filterResult = intStack[intStackSize];
-
-        // Read the (possibly modified) message
-        String filteredMessage = (String) objectStack[objectStackSize];
-
-        // Restore stack sizes
-        client.setIntStackSize(intStackSize);
-        client.setObjectStackSize(objectStackSize);
-
-        // Return null if blocked, otherwise return the filtered message
-        if (filterResult == 0) {
-            return null;
-        }
-
-        return filteredMessage;
+    public static boolean isIgnoredMessage(String line, ChatMessageType type) {
+        return line.endsWith(ChatUtil.COMMAND_MODE_MESSAGE) && ChatUtil.isModernChatMessage(line);
     }
 }

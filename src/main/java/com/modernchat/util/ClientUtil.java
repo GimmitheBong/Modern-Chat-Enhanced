@@ -34,15 +34,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class ClientUtil
 {
+    // Unfortunately this hack is required for KeyRemappingPlugin compatibility
     public static final String PRESS_ENTER_TO_CHAT = "Press Enter to Chat...";
 
     /**
      * MUST be on client thread.
      */
     public static boolean isSystemTextEntryActive(Client client) {
-        int type = client.getVarbitValue(VarClientInt.INPUT_TYPE);
-        if (type != 0 && type != 1) {
-            return true;
+        // The deob client's varbit cache (client.sy) can be null very early in
+        // the lifecycle (pre-login, before any varbit script has loaded), and
+        // PostClientTick can fire in that window. Treat any failure as "no
+        // system text entry active" — widget fallbacks below are naturally
+        // safe since getWidget returns null when interfaces aren't loaded.
+        try {
+            int type = client.getVarbitValue(VarClientInt.INPUT_TYPE);
+            if (type != 0 && type != 1) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // varbit cache not ready yet
         }
 
         // Fallback: the system prompts
@@ -52,8 +62,12 @@ public class ClientUtil
         }
 
         // Fallback: typed text buffer for system inputs
-        String s = client.getVarcStrValue(VarClientStr.INPUT_TEXT);
-        return s != null && !s.isEmpty();
+        try {
+            String s = client.getVarcStrValue(VarClientStr.INPUT_TEXT);
+            return s != null && !s.isEmpty();
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     public static boolean isSystemWidgetActive(Client client) {
@@ -78,6 +92,21 @@ public class ClientUtil
 
         Widget dialogOptions2 = client.getWidget(InterfaceID.OBJECTBOX, 0);
         if (dialogOptions2 != null && !dialogOptions2.isHidden()) {
+            return true;
+        }
+
+        Widget dialogBoth = client.getWidget(InterfaceID.CHAT_BOTH, 0);
+        if (dialogBoth != null && !dialogBoth.isHidden()) {
+            return true;
+        }
+
+        Widget dialogDoubleSprite = client.getWidget(InterfaceID.OBJECTBOX_DOUBLE, 0);
+        if (dialogDoubleSprite != null && !dialogDoubleSprite.isHidden()) {
+            return true;
+        }
+
+        Widget messageBox = client.getWidget(InterfaceID.MESSAGEBOX, 0);
+        if (messageBox != null && !messageBox.isHidden()) {
             return true;
         }
 
@@ -204,6 +233,7 @@ public class ClientUtil
     public static void setChatInputText(Client client, String value) {
         final String v = value == null ? "" : value;
         try {
+            client.setVarcStrValue(VarClientID.CHATINPUT, v);
             client.setVarcStrValue(VarClientStr.CHATBOX_TYPED_TEXT, v);
             client.runScript(ScriptID.CHAT_TEXT_INPUT_REBUILD, "");
         } catch (Throwable ex) {
@@ -212,8 +242,12 @@ public class ClientUtil
     }
 
     public static boolean isChatInputEditable(Client client) {
-        if (client.getVarbitValue(VarClientInt.INPUT_TYPE) != 0)
-            return false;
+        try {
+            if (client.getVarbitValue(VarClientInt.INPUT_TYPE) != 0)
+                return false;
+        } catch (Throwable ignored) {
+            // varbit cache not ready yet — fall through to widget check
+        }
 
         Widget w = ClientUtil.getChatInputWidget(client);
         return w != null && !w.isHidden();
@@ -249,45 +283,6 @@ public class ClientUtil
         return (dx * dx + dy * dy) <= (GE_RADIUS * GE_RADIUS);
     }
 
-    public static void simulateKeyInput(Client client, int keyCode, char keyChar) {
-        simulateKeyInput(client, keyCode, keyChar, 0);
-    }
-
-    public static void simulateKeyInput(Client client, int keyCode, char keyChar, int modifiers) {
-        Canvas canvas = client.getCanvas();
-        if (canvas == null) {
-            return;
-        }
-
-        KeyEvent press = new KeyEvent(
-            canvas,
-            KeyEvent.KEY_PRESSED,
-            System.currentTimeMillis(),
-            modifiers,
-            keyCode,
-            keyChar
-        );
-        KeyEvent release = new KeyEvent(
-            canvas,
-            KeyEvent.KEY_RELEASED,
-            System.currentTimeMillis(),
-            modifiers,
-            keyCode,
-            keyChar
-        );
-
-        canvas.dispatchEvent(press);
-        canvas.dispatchEvent(release);
-    }
-
-    public static void simulateEscapeKey(Client client) {
-        simulateKeyInput(client, KeyEvent.VK_ESCAPE, KeyEvent.CHAR_UNDEFINED);
-    }
-
-    public static void simulateSlashKey(Client client) {
-        simulateKeyInput(client, KeyEvent.VK_SLASH, KeyEvent.CHAR_UNDEFINED);
-    }
-
     public static boolean isChatLocked(Client client) {
         String input = getChatboxWidgetInput(client);
         return input != null && input.endsWith(PRESS_ENTER_TO_CHAT);
@@ -301,6 +296,13 @@ public class ClientUtil
         return null;
     }
 
+    public static void setChatboxWidgetInput(Client client, String input) {
+        Widget chatboxInput = client.getWidget(InterfaceID.Chatbox.INPUT);
+        if (chatboxInput != null) {
+            setChatboxWidgetInput(chatboxInput, input);
+        }
+    }
+
     public static void setChatboxWidgetInput(Widget widget, String input) {
         String text = widget.getText();
         int idx = text.indexOf(':');
@@ -308,5 +310,19 @@ public class ClientUtil
             String newText = text.substring(0, idx) + ": " + input;
             widget.setText(newText);
         }
+    }
+
+    public static boolean isDialogOpen(Client client) {
+        return isHidden(client, InterfaceID.Chatbox.MES_LAYER_HIDE)
+            || isHidden(client, InterfaceID.Chatbox.CHATDISPLAY);
+    }
+
+    public static boolean isOptionsDialogOpen(Client client) {
+        return client.getWidget(InterfaceID.Chatmenu.OPTIONS) != null;
+    }
+
+    public static boolean isHidden(Client client, int component) {
+        Widget w = client.getWidget(component);
+        return w == null || w.isSelfHidden();
     }
 }

@@ -5,7 +5,6 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.modernchat.common.ChatMode;
-import com.modernchat.common.ExtendedKeybind;
 import com.modernchat.common.FontStyle;
 import com.modernchat.common.Sfx;
 import com.modernchat.feature.ChatRedesignFeature;
@@ -17,7 +16,6 @@ import com.modernchat.feature.ToggleChatFeature;
 import com.modernchat.feature.command.CommandsChatFeature;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.Keybind;
-import net.runelite.client.config.Range;
 
 import java.awt.Color;
 import java.awt.event.KeyEvent;
@@ -62,15 +60,15 @@ public interface ModernChatConfigBase extends
         String featureRedesign_Resizeable = "featureRedesign_Resizeable";
         String featureRedesign_MessageContainer_Scrollable = "featureRedesign_MessageContainer_Scrollable";
         String featureRedesign_ClickOutsideToClose = "featureRedesign_ClickOutsideToClose";
+        String featureRedesign_PreserveFocusOnOutsideClick = "featureRedesign_PreserveFocusOnOutsideClick";
         String featureRedesign_ShowNotificationBadge = "featureRedesign_ShowNotificationBadge";
         String featureRedesign_AllowClickThrough = "featureRedesign_AllowClickThrough";
         String featureRedesign_AutoSelectPrivateTab = "featureRedesign_AutoSelectPrivateTab";
         String featureRedesign_ShowNpc = "featureRedesign_ShowNpc";
-        String featureRedesign_ClassicMode = "featureRedesign_ClassicMode";
-        String featureRedesign_ClassicMode_AllowPmTabs = "featureRedesign_ClassicMode_AllowPmTabs";
-        String featureRedesign_ClassicMode_ShowUnread = "featureRedesign_ClassicMode_ShowUnread";
+        String featureRedesign_AutoClosePrivateTab = "featureRedesign_AutoClosePrivateTab";
         String featureRedesign_GameTabEnabled = "featureRedesign_GameTabEnabled";
         String featureRedesign_TradeTabEnabled = "featureRedesign_TradeTabEnabled";
+        String featureRedesign_ShowTabIcons = "featureRedesign_ShowTabIcons";
 
         // Style: fonts & sizes
         String featureRedesign_FontStyle = "featureRedesign_FontStyle";
@@ -107,6 +105,14 @@ public interface ModernChatConfigBase extends
         String featureRedesign_TabCloseButtonColor = "featureRedesign_TabCloseButtonColor";
         String featureRedesign_TabCloseButtonTextColor = "featureRedesign_TabCloseButtonTextColor";
         String featureRedesign_FilterButtonColor = "featureRedesign_FilterButtonColor";
+        String featureRedesign_FilterPopupBackgroundColor = "featureRedesign_FilterPopupBackgroundColor";
+        String featureRedesign_FilterPopupBorderColor = "featureRedesign_FilterPopupBorderColor";
+        String featureRedesign_FilterPopupTextColor = "featureRedesign_FilterPopupTextColor";
+        String featureRedesign_FilterPopupCheckboxColor = "featureRedesign_FilterPopupCheckboxColor";
+        String featureRedesign_FilterPopupCheckmarkColor = "featureRedesign_FilterPopupCheckmarkColor";
+        String featureRedesign_ReportButtonFontSize = "featureRedesign_ReportButtonFontSize";
+        String featureRedesign_ReportButtonColor = "featureRedesign_ReportButtonColor";
+        String featureRedesign_ReportButtonTextColor = "featureRedesign_ReportButtonTextColor";
 
         // Message container geometry/colors
         String featureRedesign_MessageContainer_OffsetX = "featureRedesign_MessageContainer_OffsetX";
@@ -119,17 +125,28 @@ public interface ModernChatConfigBase extends
         String featureRedesign_MessageContainer_LineSpacing = "featureRedesign_MessageContainer_LineSpacing";
         String featureRedesign_MessageContainer_ScrollStep = "featureRedesign_MessageContainer_ScrollStep";
         String featureRedesign_MessageContainer_TextShadow = "featureRedesign_MessageContainer_TextShadow";
+        String featureRedesign_MessageContainer_TextOutline = "featureRedesign_MessageContainer_TextOutline";
         String featureRedesign_MessageContainer_BackdropColor = "featureRedesign_MessageContainer_BackdropColor";
         String featureRedesign_MessageContainer_BorderColor = "featureRedesign_MessageContainer_BorderColor";
         String featureRedesign_MessageContainer_ShadowColor = "featureRedesign_MessageContainer_ShadowColor";
         String featureRedesign_MessageContainer_ScrollbarTrackColor = "featureRedesign_MessageContainer_ScrollbarTrackColor";
         String featureRedesign_MessageContainer_ScrollbarThumbColor = "featureRedesign_MessageContainer_ScrollbarThumbColor";
 
+        // Filters
+        String filters_Enabled = "filters_Enabled";
+        String filters_ChatFilterEnabled = "filters_ChatFilterEnabled";
+        String filters_AreaMuteEnabled = "filters_AreaMuteEnabled";
+        String filters_SpamCorpusEnabled = "filters_SpamCorpusEnabled";
+        String filters_VanillaTabFilterEnabled = "filters_VanillaTabFilterEnabled";
+
         // General
         String general_AnchorPrivateChat = "general_AnchorPrivateChat";
         String general_AnchorPrivateChatOffsetX = "general_AnchorPrivateChatOffsetX";
         String general_AnchorPrivateChatOffsetY = "general_AnchorPrivateChatOffsetY";
         String general_HelperNotifications = "general_HelperNotifications";
+        String general_ChatWithMenuEnabled = "general_ChatWithMenuEnabled";
+        String featureRedesign_ShowReportButton = "featureRedesign_ShowReportButton";
+        String featureRedesign_ShowSessionTimer = "featureRedesign_ShowSessionTimer";
         String general_PublicChatColor = "general_PublicChatColor";
         String general_FriendsChatColor = "general_FriendsChatColor";
         String general_ClanChatColor = "general_ClanChatColor";
@@ -141,7 +158,6 @@ public interface ModernChatConfigBase extends
         // Toggle
         String featureToggle_Enabled = "featureToggle_Enabled";
         String featureToggle_ToggleKey = "featureToggle_ToggleKey";
-        String featureToggle_ExtendedToggleKey = "featureToggle_ExtendedToggleKey";
         String featureToggle_AutoHideOnSend = "featureToggle_AutoHideOnSend";
         String featureToggle_EscapeHides = "featureToggle_EscapeHides";
         String featureToggle_StartHidden = "featureToggle_StartHidden";
@@ -154,11 +170,13 @@ public interface ModernChatConfigBase extends
         String featurePeek_HideSplitPrivateMessages = "featurePeek_HideSplitPrivateMessages";
         String featurePeek_ShowTimestamp = "featurePeek_ShowTimestamp";
         String featurePeek_PrefixChatTypes = "featurePeek_PrefixChatTypes";
+        String featurePeek_ShowNpcMessages = "featurePeek_ShowNpcMessages";
         String featurePeek_BackgroundColor = "featurePeek_BackgroundColor";
         String featurePeek_BorderColor = "featurePeek_BorderColor";
         String featurePeek_FontStyle = "featurePeek_FontStyle";
         String featurePeek_FontSize  = "featurePeek_FontSize";
         String featurePeek_TextShadow = "featurePeek_TextShadow";
+        String featurePeek_TextOutline = "featurePeek_TextOutline";
         String featurePeek_OffsetX = "featurePeek_OffsetX";
         String featurePeek_OffsetY = "featurePeek_OffsetY";
         String featurePeek_Padding = "featurePeek_Padding";
@@ -182,6 +200,7 @@ public interface ModernChatConfigBase extends
         String featureCommands_ReplyEnabled = "featureCommands_ReplyEnabled";
         String featureCommands_WhisperEnabled = "featureCommands_WhisperEnabled";
         String featureCommands_PrivateMessageEnabled = "featureCommands_PrivateMessageEnabled";
+        String featureCommands_GroupChatEnabled = "featureCommands_GroupChatEnabled";
 
         // Message history
         String featureMessageHistory_Enabled = "featureMessageHistory_Enabled";
@@ -220,15 +239,15 @@ public interface ModernChatConfigBase extends
         FEATURE_REDESIGN_RESIZEABLE(Keys.featureRedesign_Resizeable, Kind.BOOL, ModernChatConfigBase::featureRedesign_Resizeable),
         FEATURE_REDESIGN_SCROLLABLE(Keys.featureRedesign_MessageContainer_Scrollable, Kind.BOOL, ModernChatConfigBase::featureRedesign_MessageContainer_Scrollable),
         FEATURE_REDESIGN_CLICK_OUTSIDE_TO_CLOSE(Keys.featureRedesign_ClickOutsideToClose, Kind.BOOL, ModernChatConfigBase::featureRedesign_ClickOutsideToClose),
+        FEATURE_REDESIGN_PRESERVE_FOCUS_ON_OUTSIDE_CLICK(Keys.featureRedesign_PreserveFocusOnOutsideClick, Kind.BOOL, ModernChatConfigBase::featureRedesign_PreserveFocusOnOutsideClick),
         FEATURE_REDESIGN_SHOW_BADGE(Keys.featureRedesign_ShowNotificationBadge, Kind.BOOL, ModernChatConfigBase::featureRedesign_ShowNotificationBadge),
         FEATURE_REDESIGN_ALLOW_CLICK_THROUGH(Keys.featureRedesign_AllowClickThrough, Kind.BOOL, ModernChatConfigBase::featureRedesign_AllowClickThrough),
         FEATURE_REDESIGN_AUTO_SELECT_PRIVATE_TAB(Keys.featureRedesign_AutoSelectPrivateTab, Kind.BOOL, ModernChatConfigBase::featureRedesign_AutoSelectPrivateTab),
         FEATURE_REDESIGN_SHOW_NPC(Keys.featureRedesign_ShowNpc, Kind.BOOL, ModernChatConfigBase::featureRedesign_ShowNpc),
-        FEATURE_REDESIGN_CLASSIC_MODE(Keys.featureRedesign_ClassicMode, Kind.BOOL, ModernChatConfigBase::featureRedesign_ClassicMode),
-        FEATURE_REDESIGN_CLASSIC_MODE_ALLOW_PM_TABS(Keys.featureRedesign_ClassicMode_AllowPmTabs, Kind.BOOL, ModernChatConfigBase::featureRedesign_ClassicMode_AllowPmTabs),
-        FEATURE_REDESIGN_CLASSIC_MODE_SHOW_UNREAD(Keys.featureRedesign_ClassicMode_ShowUnread, Kind.BOOL, ModernChatConfigBase::featureRedesign_ClassicMode_ShowUnread),
+        FEATURE_REDESIGN_AUTO_CLOSE_PM(Keys.featureRedesign_AutoClosePrivateTab, Kind.BOOL, ModernChatConfigBase::featureRedesign_AutoClosePrivateTab),
         FEATURE_REDESIGN_GAME_TAB_ENABLED(Keys.featureRedesign_GameTabEnabled, Kind.BOOL, ModernChatConfigBase::featureRedesign_GameTabEnabled),
         FEATURE_REDESIGN_TRADE_TAB_ENABLED(Keys.featureRedesign_TradeTabEnabled, Kind.BOOL, ModernChatConfigBase::featureRedesign_TradeTabEnabled),
+        FEATURE_REDESIGN_SHOW_TAB_ICONS(Keys.featureRedesign_ShowTabIcons, Kind.BOOL, ModernChatConfigBase::featureRedesign_ShowTabIcons),
 
         // ---- Style: fonts & sizes ----
         FEATURE_REDESIGN_FONT_STYLE(Keys.featureRedesign_FontStyle, FontStyle.class, ModernChatConfigBase::featureRedesign_FontStyle),
@@ -265,6 +284,14 @@ public interface ModernChatConfigBase extends
         FEATURE_REDESIGN_TAB_CLOSE_BTN_COLOR(Keys.featureRedesign_TabCloseButtonColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_TabCloseButtonColor),
         FEATURE_REDESIGN_TAB_CLOSE_BTN_TEXT_COLOR(Keys.featureRedesign_TabCloseButtonTextColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_TabCloseButtonTextColor),
         FEATURE_REDESIGN_FILTER_BTN_COLOR(Keys.featureRedesign_FilterButtonColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_FilterButtonColor),
+        FEATURE_REDESIGN_FILTER_POPUP_BG_COLOR(Keys.featureRedesign_FilterPopupBackgroundColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_FilterPopupBackgroundColor),
+        FEATURE_REDESIGN_FILTER_POPUP_BORDER_COLOR(Keys.featureRedesign_FilterPopupBorderColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_FilterPopupBorderColor),
+        FEATURE_REDESIGN_FILTER_POPUP_TEXT_COLOR(Keys.featureRedesign_FilterPopupTextColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_FilterPopupTextColor),
+        FEATURE_REDESIGN_FILTER_POPUP_CHECKBOX_COLOR(Keys.featureRedesign_FilterPopupCheckboxColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_FilterPopupCheckboxColor),
+        FEATURE_REDESIGN_FILTER_POPUP_CHECKMARK_COLOR(Keys.featureRedesign_FilterPopupCheckmarkColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_FilterPopupCheckmarkColor),
+        FEATURE_REDESIGN_REPORT_BTN_FONT_SIZE(Keys.featureRedesign_ReportButtonFontSize, Kind.INT, ModernChatConfigBase::featureRedesign_ReportButtonFontSize),
+        FEATURE_REDESIGN_REPORT_BTN_COLOR(Keys.featureRedesign_ReportButtonColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_ReportButtonColor),
+        FEATURE_REDESIGN_REPORT_BTN_TEXT_COLOR(Keys.featureRedesign_ReportButtonTextColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_ReportButtonTextColor),
 
         // ---- Message container geometry ----
         FEATURE_REDESIGN_MSG_OFFSET_X(Keys.featureRedesign_MessageContainer_OffsetX, Kind.INT, ModernChatConfigBase::featureRedesign_MessageContainer_OffsetX),
@@ -277,6 +304,7 @@ public interface ModernChatConfigBase extends
         FEATURE_REDESIGN_MSG_LINE_SPACING(Keys.featureRedesign_MessageContainer_LineSpacing, Kind.INT, ModernChatConfigBase::featureRedesign_MessageContainer_LineSpacing),
         FEATURE_REDESIGN_MSG_SCROLL_STEP(Keys.featureRedesign_MessageContainer_ScrollStep, Kind.INT, ModernChatConfigBase::featureRedesign_MessageContainer_ScrollStep),
         FEATURE_REDESIGN_MSG_TEXT_SHADOW(Keys.featureRedesign_MessageContainer_TextShadow, Kind.INT, ModernChatConfigBase::featureRedesign_MessageContainer_TextShadow),
+        FEATURE_REDESIGN_MSG_TEXT_OUTLINE(Keys.featureRedesign_MessageContainer_TextOutline, Kind.INT, ModernChatConfigBase::featureRedesign_MessageContainer_TextOutline),
 
         // ---- Message container colors ----
         FEATURE_REDESIGN_MSG_BACKDROP_COLOR(Keys.featureRedesign_MessageContainer_BackdropColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_MessageContainer_BackdropColor),
@@ -287,11 +315,21 @@ public interface ModernChatConfigBase extends
         FEATURE_REDESIGN_TIMESTAMP_COLOR(Keys.featureRedesign_TimestampColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_TimestampColor),
         FEATURE_REDESIGN_TYPE_PREFIX_COLOR(Keys.featureRedesign_TypePrefixColor, Kind.COLOR, ModernChatConfigBase::featureRedesign_TypePrefixColor),
 
+        // ---- Filters ----
+        FILTERS_ENABLED(Keys.filters_Enabled, Kind.BOOL, ModernChatConfigBase::filters_Enabled),
+        FILTERS_CHAT_FILTER_ENABLED(Keys.filters_ChatFilterEnabled, Kind.BOOL, ModernChatConfigBase::filters_ChatFilterEnabled),
+        FILTERS_AREA_MUTE_ENABLED(Keys.filters_AreaMuteEnabled, Kind.BOOL, ModernChatConfigBase::filters_AreaMuteEnabled),
+        FILTERS_SPAM_CORPUS_ENABLED(Keys.filters_SpamCorpusEnabled, Kind.BOOL, ModernChatConfigBase::filters_SpamCorpusEnabled),
+        FILTERS_VANILLA_TAB_FILTER_ENABLED(Keys.filters_VanillaTabFilterEnabled, Kind.BOOL, ModernChatConfigBase::filters_VanillaTabFilterEnabled),
+
         // ---- General ----
         GENERAL_ANCHOR_PM(Keys.general_AnchorPrivateChat, Kind.BOOL, ModernChatConfigBase::general_AnchorPrivateChat),
         GENERAL_ANCHOR_PM_OFFSET_X(Keys.general_AnchorPrivateChatOffsetX, Kind.INT, ModernChatConfigBase::general_AnchorPrivateChatOffsetX),
         GENERAL_ANCHOR_PM_OFFSET_Y(Keys.general_AnchorPrivateChatOffsetY, Kind.INT, ModernChatConfigBase::general_AnchorPrivateChatOffsetY),
         GENERAL_HELPER_NOTIFICATIONS(Keys.general_HelperNotifications, Kind.BOOL, ModernChatConfigBase::general_HelperNotifications),
+        GENERAL_CHAT_WITH_MENU_ENABLED(Keys.general_ChatWithMenuEnabled, Kind.BOOL, ModernChatConfigBase::general_ChatWithMenuEnabled),
+        FEATURE_REDESIGN_SHOW_REPORT_BUTTON(Keys.featureRedesign_ShowReportButton, Kind.BOOL, ModernChatConfigBase::featureRedesign_ShowReportButton),
+        FEATURE_REDESIGN_SHOW_SESSION_TIMER(Keys.featureRedesign_ShowSessionTimer, Kind.BOOL, ModernChatConfigBase::featureRedesign_ShowSessionTimer),
         GENERAL_PUBLIC_COLOR(Keys.general_PublicChatColor, Kind.COLOR, ModernChatConfigBase::general_PublicChatColor),
         GENERAL_FRIENDS_COLOR(Keys.general_FriendsChatColor, Kind.COLOR, ModernChatConfigBase::general_FriendsChatColor),
         GENERAL_CLAN_COLOR(Keys.general_ClanChatColor, Kind.COLOR, ModernChatConfigBase::general_ClanChatColor),
@@ -303,9 +341,8 @@ public interface ModernChatConfigBase extends
         // ---- Toggle ----
         TOGGLE_ENABLED(Keys.featureToggle_Enabled, Kind.BOOL, ModernChatConfigBase::featureToggle_Enabled),
         TOGGLE_KEY(Keys.featureToggle_ToggleKey, Kind.KEYBIND, ModernChatConfigBase::featureToggle_ToggleKey),
-        TOGGLE_EXTENDED_KEY(Keys.featureToggle_ExtendedToggleKey, ExtendedKeybind.class, ModernChatConfigBase::featureToggle_ExtendedToggleKey),
         TOGGLE_AUTOHIDE_ON_SEND(Keys.featureToggle_AutoHideOnSend, Kind.BOOL, ModernChatConfigBase::featureToggle_AutoHideOnSend),
-        TOGGLE_ESCAPE_HIDES(Keys.featureToggle_EscapeHides, Kind.BOOL, ModernChatConfigBase::featureToggle_EscapeHides),
+        TOGGLE_ESCAPE_HIDES(Keys.featureToggle_EscapeHides, Kind.KEYBIND, ModernChatConfigBase::featureToggle_EscapeHides),
         TOGGLE_START_HIDDEN(Keys.featureToggle_StartHidden, Kind.BOOL, ModernChatConfigBase::featureToggle_StartHidden),
         TOGGLE_LOCK_CAMERA(Keys.featureToggle_LockCameraWhenVisible, Kind.BOOL, ModernChatConfigBase::featureToggle_LockCameraWhenVisible),
 
@@ -316,11 +353,13 @@ public interface ModernChatConfigBase extends
         PEEK_HIDE_SPLIT_PM(Keys.featurePeek_HideSplitPrivateMessages, Kind.BOOL, ModernChatConfigBase::featurePeek_HideSplitPrivateMessages),
         PEEK_SHOW_TIMESTAMP(Keys.featurePeek_ShowTimestamp, Kind.BOOL, ModernChatConfigBase::featurePeek_ShowTimestamp),
         PEEK_PREFIX_TYPES(Keys.featurePeek_PrefixChatTypes, Kind.BOOL, ModernChatConfigBase::featurePeek_PrefixChatTypes),
+        PEEK_SHOW_NPC(Keys.featurePeek_ShowNpcMessages, Kind.BOOL, ModernChatConfigBase::featurePeek_ShowNpcMessages),
         PEEK_BG_COLOR(Keys.featurePeek_BackgroundColor, Kind.COLOR, ModernChatConfigBase::featurePeek_BackgroundColor),
         PEEK_BORDER_COLOR(Keys.featurePeek_BorderColor, Kind.COLOR, ModernChatConfigBase::featurePeek_BorderColor),
         PEEK_FONT_STYLE(Keys.featurePeek_FontStyle, FontStyle.class, ModernChatConfigBase::featurePeek_FontStyle),
         PEEK_FONT_SIZE(Keys.featurePeek_FontSize, Kind.INT, ModernChatConfigBase::featurePeek_FontSize),
         PEEK_TEXT_SHADOW(Keys.featurePeek_TextShadow, Kind.INT, ModernChatConfigBase::featurePeek_TextShadow),
+        PEEK_TEXT_OUTLINE(Keys.featurePeek_TextOutline, Kind.INT, ModernChatConfigBase::featurePeek_TextOutline),
         PEEK_OFFSET_X(Keys.featurePeek_OffsetX, Kind.INT, ModernChatConfigBase::featurePeek_OffsetX),
         PEEK_OFFSET_Y(Keys.featurePeek_OffsetY, Kind.INT, ModernChatConfigBase::featurePeek_OffsetY),
         PEEK_PADDING(Keys.featurePeek_Padding, Kind.INT, ModernChatConfigBase::featurePeek_Padding),
@@ -337,6 +376,7 @@ public interface ModernChatConfigBase extends
         CMD_REPLY(Keys.featureCommands_ReplyEnabled, Kind.BOOL, ModernChatConfigBase::featureCommands_ReplyEnabled),
         CMD_WHISPER(Keys.featureCommands_WhisperEnabled, Kind.BOOL, ModernChatConfigBase::featureCommands_WhisperEnabled),
         CMD_PM(Keys.featureCommands_PrivateMessageEnabled, Kind.BOOL, ModernChatConfigBase::featureCommands_PrivateMessageEnabled),
+        CMD_GROUP(Keys.featureCommands_GroupChatEnabled, Kind.BOOL, ModernChatConfigBase::featureCommands_GroupChatEnabled),
 
         // ---- Message history ----
         HIST_ENABLED(Keys.featureMessageHistory_Enabled, Kind.BOOL, ModernChatConfigBase::featureMessageHistory_Enabled),
@@ -390,10 +430,18 @@ public interface ModernChatConfigBase extends
         }
     }
 
+    boolean filters_Enabled();
+    boolean filters_ChatFilterEnabled();
+    boolean filters_AreaMuteEnabled();
+    boolean filters_SpamCorpusEnabled();
+    boolean filters_VanillaTabFilterEnabled();
     boolean general_AnchorPrivateChat();
     int general_AnchorPrivateChatOffsetX();
     int general_AnchorPrivateChatOffsetY();
     boolean general_HelperNotifications();
+    boolean general_ChatWithMenuEnabled();
+    boolean featureRedesign_ShowReportButton();
+    boolean featureRedesign_ShowSessionTimer();
     Color general_PublicChatColor();
     Color general_FriendsChatColor();
     Color general_ClanChatColor();
@@ -481,15 +529,15 @@ public interface ModernChatConfigBase extends
         @Override public boolean featureRedesign_Resizeable() { return getBool(Keys.featureRedesign_Resizeable, DEFAULTS.featureRedesign_Resizeable()); }
         @Override public boolean featureRedesign_MessageContainer_Scrollable() { return getBool(Keys.featureRedesign_MessageContainer_Scrollable, DEFAULTS.featureRedesign_MessageContainer_Scrollable()); }
         @Override public boolean featureRedesign_ClickOutsideToClose() { return getBool(Keys.featureRedesign_ClickOutsideToClose, DEFAULTS.featureRedesign_ClickOutsideToClose()); }
+        @Override public boolean featureRedesign_PreserveFocusOnOutsideClick() { return getBool(Keys.featureRedesign_PreserveFocusOnOutsideClick, DEFAULTS.featureRedesign_PreserveFocusOnOutsideClick()); }
         @Override public boolean featureRedesign_ShowNotificationBadge() { return getBool(Keys.featureRedesign_ShowNotificationBadge, DEFAULTS.featureRedesign_ShowNotificationBadge()); }
         @Override public boolean featureRedesign_AllowClickThrough() { return getBool(Keys.featureRedesign_AllowClickThrough, DEFAULTS.featureRedesign_AllowClickThrough()); }
         @Override public boolean featureRedesign_AutoSelectPrivateTab() { return getBool(Keys.featureRedesign_AutoSelectPrivateTab, DEFAULTS.featureRedesign_AutoSelectPrivateTab()); }
         @Override public boolean featureRedesign_ShowNpc() { return getBool(Keys.featureRedesign_ShowNpc, DEFAULTS.featureRedesign_ShowNpc()); }
-        @Override public boolean featureRedesign_ClassicMode() { return getBool(Keys.featureRedesign_ClassicMode, DEFAULTS.featureRedesign_ClassicMode()); }
-        @Override public boolean featureRedesign_ClassicMode_AllowPmTabs() { return getBool(Keys.featureRedesign_ClassicMode_AllowPmTabs, DEFAULTS.featureRedesign_ClassicMode_AllowPmTabs()); }
-        @Override public boolean featureRedesign_ClassicMode_ShowUnread() { return getBool(Keys.featureRedesign_ClassicMode_ShowUnread, DEFAULTS.featureRedesign_ClassicMode_ShowUnread()); }
+        @Override public boolean featureRedesign_AutoClosePrivateTab() { return getBool(Keys.featureRedesign_AutoClosePrivateTab, DEFAULTS.featureRedesign_AutoClosePrivateTab()); }
         @Override public boolean featureRedesign_GameTabEnabled() { return getBool(Keys.featureRedesign_GameTabEnabled, DEFAULTS.featureRedesign_GameTabEnabled()); }
         @Override public boolean featureRedesign_TradeTabEnabled() { return getBool(Keys.featureRedesign_TradeTabEnabled, DEFAULTS.featureRedesign_TradeTabEnabled()); }
+        @Override public boolean featureRedesign_ShowTabIcons() { return getBool(Keys.featureRedesign_ShowTabIcons, DEFAULTS.featureRedesign_ShowTabIcons()); }
 
         // Style: fonts & sizes
         @Override public FontStyle featureRedesign_FontStyle() { return getEnum(Keys.featureRedesign_FontStyle, DEFAULTS.featureRedesign_FontStyle(), FontStyle.class); }
@@ -526,6 +574,14 @@ public interface ModernChatConfigBase extends
         @Override public Color featureRedesign_TabCloseButtonColor() { return getColor(Keys.featureRedesign_TabCloseButtonColor, DEFAULTS.featureRedesign_TabCloseButtonColor()); }
         @Override public Color featureRedesign_TabCloseButtonTextColor() { return getColor(Keys.featureRedesign_TabCloseButtonTextColor, DEFAULTS.featureRedesign_TabCloseButtonTextColor()); }
         @Override public Color featureRedesign_FilterButtonColor() { return getColor(Keys.featureRedesign_FilterButtonColor, DEFAULTS.featureRedesign_FilterButtonColor()); }
+        @Override public Color featureRedesign_FilterPopupBackgroundColor() { return getColor(Keys.featureRedesign_FilterPopupBackgroundColor, DEFAULTS.featureRedesign_FilterPopupBackgroundColor()); }
+        @Override public Color featureRedesign_FilterPopupBorderColor() { return getColor(Keys.featureRedesign_FilterPopupBorderColor, DEFAULTS.featureRedesign_FilterPopupBorderColor()); }
+        @Override public Color featureRedesign_FilterPopupTextColor() { return getColor(Keys.featureRedesign_FilterPopupTextColor, DEFAULTS.featureRedesign_FilterPopupTextColor()); }
+        @Override public Color featureRedesign_FilterPopupCheckboxColor() { return getColor(Keys.featureRedesign_FilterPopupCheckboxColor, DEFAULTS.featureRedesign_FilterPopupCheckboxColor()); }
+        @Override public Color featureRedesign_FilterPopupCheckmarkColor() { return getColor(Keys.featureRedesign_FilterPopupCheckmarkColor, DEFAULTS.featureRedesign_FilterPopupCheckmarkColor()); }
+        @Override public int featureRedesign_ReportButtonFontSize() { return getInt(Keys.featureRedesign_ReportButtonFontSize, DEFAULTS.featureRedesign_ReportButtonFontSize()); }
+        @Override public Color featureRedesign_ReportButtonColor() { return getColor(Keys.featureRedesign_ReportButtonColor, DEFAULTS.featureRedesign_ReportButtonColor()); }
+        @Override public Color featureRedesign_ReportButtonTextColor() { return getColor(Keys.featureRedesign_ReportButtonTextColor, DEFAULTS.featureRedesign_ReportButtonTextColor()); }
 
         // Message container geometry
         @Override public int featureRedesign_MessageContainer_OffsetX() { return getInt(Keys.featureRedesign_MessageContainer_OffsetX, DEFAULTS.featureRedesign_MessageContainer_OffsetX()); }
@@ -538,6 +594,7 @@ public interface ModernChatConfigBase extends
         @Override public int featureRedesign_MessageContainer_LineSpacing() { return getInt(Keys.featureRedesign_MessageContainer_LineSpacing, DEFAULTS.featureRedesign_MessageContainer_LineSpacing()); }
         @Override public int featureRedesign_MessageContainer_ScrollStep() { return getInt(Keys.featureRedesign_MessageContainer_ScrollStep, DEFAULTS.featureRedesign_MessageContainer_ScrollStep()); }
         @Override public int featureRedesign_MessageContainer_TextShadow() { return getInt(Keys.featureRedesign_MessageContainer_TextShadow, DEFAULTS.featureRedesign_MessageContainer_TextShadow()); }
+        @Override public int featureRedesign_MessageContainer_TextOutline() { return getInt(Keys.featureRedesign_MessageContainer_TextOutline, DEFAULTS.featureRedesign_MessageContainer_TextOutline()); }
 
         // Message container colors
         @Override public Color featureRedesign_MessageContainer_BackdropColor() { return getColor(Keys.featureRedesign_MessageContainer_BackdropColor, DEFAULTS.featureRedesign_MessageContainer_BackdropColor()); }
@@ -548,11 +605,21 @@ public interface ModernChatConfigBase extends
         @Override public Color featureRedesign_TimestampColor() { return getColor(Keys.featureRedesign_TimestampColor, DEFAULTS.featureRedesign_TimestampColor()); }
         @Override public Color featureRedesign_TypePrefixColor() { return getColor(Keys.featureRedesign_TypePrefixColor, DEFAULTS.featureRedesign_TypePrefixColor()); }
 
+        // Filters
+        @Override public boolean filters_Enabled() { return getBool(Keys.filters_Enabled, DEFAULTS.filters_Enabled()); }
+        @Override public boolean filters_ChatFilterEnabled() { return getBool(Keys.filters_ChatFilterEnabled, DEFAULTS.filters_ChatFilterEnabled()); }
+        @Override public boolean filters_AreaMuteEnabled() { return getBool(Keys.filters_AreaMuteEnabled, DEFAULTS.filters_AreaMuteEnabled()); }
+        @Override public boolean filters_SpamCorpusEnabled() { return getBool(Keys.filters_SpamCorpusEnabled, DEFAULTS.filters_SpamCorpusEnabled()); }
+        @Override public boolean filters_VanillaTabFilterEnabled() { return getBool(Keys.filters_VanillaTabFilterEnabled, DEFAULTS.filters_VanillaTabFilterEnabled()); }
+
         // General colors & options
         @Override public boolean general_AnchorPrivateChat() { return getBool(Keys.general_AnchorPrivateChat, DEFAULTS.general_AnchorPrivateChat()); }
         @Override public int general_AnchorPrivateChatOffsetX() { return getInt(Keys.general_AnchorPrivateChatOffsetX, DEFAULTS.general_AnchorPrivateChatOffsetX()); }
         @Override public int general_AnchorPrivateChatOffsetY() { return getInt(Keys.general_AnchorPrivateChatOffsetY, DEFAULTS.general_AnchorPrivateChatOffsetY()); }
         @Override public boolean general_HelperNotifications() { return getBool(Keys.general_HelperNotifications, DEFAULTS.general_HelperNotifications()); }
+        @Override public boolean general_ChatWithMenuEnabled() { return getBool(Keys.general_ChatWithMenuEnabled, DEFAULTS.general_ChatWithMenuEnabled()); }
+        @Override public boolean featureRedesign_ShowReportButton() { return getBool(Keys.featureRedesign_ShowReportButton, DEFAULTS.featureRedesign_ShowReportButton()); }
+        @Override public boolean featureRedesign_ShowSessionTimer() { return getBool(Keys.featureRedesign_ShowSessionTimer, DEFAULTS.featureRedesign_ShowSessionTimer()); }
         @Override public Color general_PublicChatColor() { return getColor(Keys.general_PublicChatColor, DEFAULTS.general_PublicChatColor()); }
         @Override public Color general_FriendsChatColor() { return getColor(Keys.general_FriendsChatColor, DEFAULTS.general_FriendsChatColor()); }
         @Override public Color general_ClanChatColor() { return getColor(Keys.general_ClanChatColor, DEFAULTS.general_ClanChatColor()); }
@@ -564,9 +631,8 @@ public interface ModernChatConfigBase extends
         // Toggle feature
         @Override public boolean featureToggle_Enabled() { return getBool(Keys.featureToggle_Enabled, DEFAULTS.featureToggle_Enabled()); }
         @Override public Keybind featureToggle_ToggleKey() { return getKeybind(Keys.featureToggle_ToggleKey, DEFAULTS.featureToggle_ToggleKey()); }
-        @Override public ExtendedKeybind featureToggle_ExtendedToggleKey() { return getEnum(Keys.featureToggle_ExtendedToggleKey, DEFAULTS.featureToggle_ExtendedToggleKey(), ExtendedKeybind.class); }
         @Override public boolean featureToggle_AutoHideOnSend() { return getBool(Keys.featureToggle_AutoHideOnSend, DEFAULTS.featureToggle_AutoHideOnSend()); }
-        @Override public boolean featureToggle_EscapeHides() { return getBool(Keys.featureToggle_EscapeHides, DEFAULTS.featureToggle_EscapeHides()); }
+        @Override public Keybind featureToggle_EscapeHides() { return getKeybind(Keys.featureToggle_EscapeHides, DEFAULTS.featureToggle_EscapeHides()); }
         @Override public boolean featureToggle_StartHidden() { return getBool(Keys.featureToggle_StartHidden, DEFAULTS.featureToggle_StartHidden()); }
         @Override public boolean featureToggle_LockCameraWhenVisible() { return getBool(Keys.featureToggle_LockCameraWhenVisible, DEFAULTS.featureToggle_LockCameraWhenVisible()); }
 
@@ -577,11 +643,13 @@ public interface ModernChatConfigBase extends
         @Override public boolean featurePeek_HideSplitPrivateMessages() { return getBool(Keys.featurePeek_HideSplitPrivateMessages, DEFAULTS.featurePeek_HideSplitPrivateMessages()); }
         @Override public boolean featurePeek_ShowTimestamp() { return getBool(Keys.featurePeek_ShowTimestamp, DEFAULTS.featurePeek_ShowTimestamp()); }
         @Override public boolean featurePeek_PrefixChatTypes() { return getBool(Keys.featurePeek_PrefixChatTypes, DEFAULTS.featurePeek_PrefixChatTypes()); }
+        @Override public boolean featurePeek_ShowNpcMessages() { return getBool(Keys.featurePeek_ShowNpcMessages, DEFAULTS.featurePeek_ShowNpcMessages()); }
         @Override public Color featurePeek_BackgroundColor() { return getColor(Keys.featurePeek_BackgroundColor, DEFAULTS.featurePeek_BackgroundColor()); }
         @Override public Color featurePeek_BorderColor() { return getColor(Keys.featurePeek_BorderColor, DEFAULTS.featurePeek_BorderColor()); }
         @Override public FontStyle featurePeek_FontStyle() { return getEnum(Keys.featurePeek_FontStyle, DEFAULTS.featurePeek_FontStyle(), FontStyle.class); }
         @Override public int featurePeek_FontSize() { return getInt(Keys.featurePeek_FontSize, DEFAULTS.featurePeek_FontSize()); }
         @Override public int featurePeek_TextShadow() { return getInt(Keys.featurePeek_TextShadow, DEFAULTS.featurePeek_TextShadow()); }
+        @Override public int featurePeek_TextOutline() { return getInt(Keys.featurePeek_TextOutline, DEFAULTS.featurePeek_TextOutline()); }
         @Override public int featurePeek_OffsetX() { return getInt(Keys.featurePeek_OffsetX, DEFAULTS.featurePeek_OffsetX()); }
         @Override public int featurePeek_OffsetY() { return getInt(Keys.featurePeek_OffsetY, DEFAULTS.featurePeek_OffsetY()); }
         @Override public int featurePeek_Padding() { return getInt(Keys.featurePeek_Padding, DEFAULTS.featurePeek_Padding()); }
@@ -601,6 +669,7 @@ public interface ModernChatConfigBase extends
         @Override public boolean featureCommands_ReplyEnabled() { return getBool(Keys.featureCommands_ReplyEnabled, DEFAULTS.featureCommands_ReplyEnabled()); }
         @Override public boolean featureCommands_WhisperEnabled() { return getBool(Keys.featureCommands_WhisperEnabled, DEFAULTS.featureCommands_WhisperEnabled()); }
         @Override public boolean featureCommands_PrivateMessageEnabled() { return getBool(Keys.featureCommands_PrivateMessageEnabled, DEFAULTS.featureCommands_PrivateMessageEnabled()); }
+        @Override public boolean featureCommands_GroupChatEnabled() { return getBool(Keys.featureCommands_GroupChatEnabled, DEFAULTS.featureCommands_GroupChatEnabled()); }
 
         // Message history
         @Override public boolean featureMessageHistory_Enabled() { return getBool(Keys.featureMessageHistory_Enabled, DEFAULTS.featureMessageHistory_Enabled()); }
