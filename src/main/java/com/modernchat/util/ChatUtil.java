@@ -53,10 +53,13 @@ public class ChatUtil
 
     public static List<Integer> extractIconIds(@Nullable String name) {
         if (name == null || name.isEmpty()) return List.of();
-        List<Integer> ids = new ArrayList<>();
+        List<Integer> ids = null;
         Matcher m = IMG_TAG_PATTERN.matcher(name);
-        while (m.find()) ids.add(Integer.parseInt(m.group(1)));
-        return ids;
+        while (m.find()) {
+            if (ids == null) ids = new ArrayList<>();
+            ids.add(Integer.parseInt(m.group(1)));
+        }
+        return ids == null ? List.of() : ids;
     }
 
     public static boolean isPrivateMessage(ChatMessageType t) {
@@ -205,7 +208,7 @@ public class ChatUtil
         }
 
         int senderIconId = senderIconIds.isEmpty() ? -1 : senderIconIds.get(0);
-        return new SenderReceiver(senderName, receiverName, senderIconId, senderIconIds);
+        return new SenderReceiver(senderName, receiverName, senderIconId, List.copyOf(senderIconIds));
     }
 
     public static String getCustomPrefix(ChatMessage msg) {
