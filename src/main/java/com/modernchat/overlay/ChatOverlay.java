@@ -165,6 +165,9 @@ public class ChatOverlay extends OverlayPanel
 
     @Getter private Rectangle lastViewport = null;
 
+    // Debounce for the render() All-tab fallback so a bad state can't warn every frame
+    private boolean allTabFallbackAttempted = false;
+
     // Input box state
     private final Rectangle inputBounds = new Rectangle();
     private boolean inputFocused = false;
@@ -370,6 +373,15 @@ public class ChatOverlay extends OverlayPanel
 
         if (messageContainer == null) {
             selectTab(config.getDefaultChatMode());
+
+            // The default mode may have no tab (e.g. PUBLIC is replaced by the All tab),
+            // so fall back to the All tab rather than never rendering the overlay again.
+            // Only attempt once until refreshTabs runs again, so a pathological state
+            // can't warn every frame.
+            if (messageContainer == null && !allTabFallbackAttempted) {
+                allTabFallbackAttempted = true;
+                selectTabByKey(ALL_TAB_KEY);
+            }
 
             if (messageContainer == null)
                 return null;
@@ -1062,6 +1074,7 @@ public class ChatOverlay extends OverlayPanel
 
     public void refreshTabs() {
         tabsScrollPx = 0;
+        allTabFallbackAttempted = false;
 
         boolean isAutoClosePm = config.isAutoClosePrivateTab();
 
@@ -1375,6 +1388,28 @@ public class ChatOverlay extends OverlayPanel
         messageContainer.setAlpha(1f);
     }
 
+    private @Nullable MessageContainer containerForTab(@Nullable Tab tab) {
+        if (tab == null)
+            return null;
+
+        String key = tab.getKey();
+        if (key == null)
+            return null;
+
+        if (ALL_TAB_KEY.equals(key))
+            return allContainer;
+        if (GAME_TAB_KEY.equals(key))
+            return gameContainer;
+        if (TRADE_TAB_KEY.equals(key))
+            return tradeContainer;
+        if (tab.isPrivate()) {
+            String targetName = tab.getTargetName();
+            // ConcurrentHashMap rejects null keys
+            return targetName != null ? privateContainers.get(targetName) : null;
+        }
+        return messageContainers.get(key);
+    }
+
     public Color getInputPrefixColor() {
         Color prefixColor = messageContainer != null ? messageContainer.getTextColor() : null;
         return prefixColor != null ? prefixColor : config.getInputPrefixColor();
@@ -1561,7 +1596,11 @@ public class ChatOverlay extends OverlayPanel
             sub.createMenuEntry(index++)
                 .setOption("Clear messages")
                 .setType(MenuAction.RUNELITE)
-                .onClick(me -> clear());
+                .onClick(me -> {
+                    MessageContainer container = containerForTab(hovered);
+                    if (container != null)
+                        container.clearMessages();
+                });
 
             sub.createMenuEntry(index++)
                 .setOption("Move left")
