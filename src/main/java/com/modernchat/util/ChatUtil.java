@@ -41,13 +41,25 @@ public class ChatUtil
     public static class SenderReceiver {
         String senderName;
         String receiverName;
-        int senderIconId; // -1 if none
+        int senderIconId; // -1 if none (first icon when multiple)
+        List<Integer> senderIconIds; // all icons in order, empty if none
     }
 
     public static int extractIconId(@Nullable String name) {
         if (name == null || name.isEmpty()) return -1;
         Matcher m = IMG_TAG_PATTERN.matcher(name);
         return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
+
+    public static List<Integer> extractIconIds(@Nullable String name) {
+        if (name == null || name.isEmpty()) return List.of();
+        List<Integer> ids = null;
+        Matcher m = IMG_TAG_PATTERN.matcher(name);
+        while (m.find()) {
+            if (ids == null) ids = new ArrayList<>();
+            ids.add(Integer.parseInt(m.group(1)));
+        }
+        return ids == null ? List.of() : ids;
     }
 
     public static boolean isPrivateMessage(ChatMessageType t) {
@@ -164,8 +176,8 @@ public class ChatUtil
         String name = msg.getName();
         ChatMessageType type = msg.getType();
 
-        // Extract icon ID from the raw name *before* stripping tags
-        int senderIconId = -1;
+        // Extract icon IDs from the raw name *before* stripping tags
+        List<Integer> senderIconIds = List.of();
 
         if (type == ChatMessageType.PRIVATECHATOUT) {
             // For outgoing PMs, the "name" is the receiver - no sender icon
@@ -173,21 +185,21 @@ public class ChatUtil
             senderName = "You";
         }
         else if (type == ChatMessageType.PRIVATECHAT) {
-            // For incoming PMs, the "name" is the sender - extract their icon
-            senderIconId = extractIconId(name);
+            // For incoming PMs, the "name" is the sender - extract their icons
+            senderIconIds = extractIconIds(name);
             receiverName = localPlayerName;
             senderName = name != null ? Text.removeTags(name) : null;
         }
         else if (ChatUtil.isClanMessage(type) || ChatUtil.isFriendsChatMessage(type)) {
-            senderIconId = extractIconId(name);
+            senderIconIds = extractIconIds(name);
             senderName = name != null ? Text.removeTags(name) : null;
         }
         else if (senderName == null) {
-            senderIconId = extractIconId(name);
+            senderIconIds = extractIconIds(name);
             senderName = name != null ? Text.removeTags(name) : null;
         }
         else {
-            senderIconId = extractIconId(senderName);
+            senderIconIds = extractIconIds(senderName);
             senderName = Text.removeTags(senderName);
         }
 
@@ -195,7 +207,8 @@ public class ChatUtil
             receiverName = localPlayerName;
         }
 
-        return new SenderReceiver(senderName, receiverName, senderIconId);
+        int senderIconId = senderIconIds.isEmpty() ? -1 : senderIconIds.get(0);
+        return new SenderReceiver(senderName, receiverName, senderIconId, List.copyOf(senderIconIds));
     }
 
     public static String getCustomPrefix(ChatMessage msg) {
@@ -290,6 +303,11 @@ public class ChatUtil
         ChatMessageBuilder builder = new ChatMessageBuilder();
 
         if (!StringUtil.isNullOrEmpty(senderName)) {
+            // Render account-type icons (ironman, leagues, etc.) before the sender name.
+            // senderName itself stays tag-free - it is used for tab keys and target names.
+            for (int iconId : senderReceiver.getSenderIconIds()) {
+                builder.img(iconId);
+            }
             builder.append(senderName, false).append(": ");
         }
 
