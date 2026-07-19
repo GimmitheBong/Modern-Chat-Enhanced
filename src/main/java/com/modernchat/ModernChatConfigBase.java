@@ -187,6 +187,7 @@ public interface ModernChatConfigBase extends
         String featurePeek_FadeDuration = "featurePeek_FadeDuration";
         String featurePeek_SourceTabKey = "featurePeek_SourceTabKey";
         String featurePeek_SuppressFadeAtGE = "featurePeek_SuppressFadeAtGE";
+        String featurePeek_UnfadeOnCollapsed = "featurePeek_UnfadeOnCollapsed";
         String featurePeek_TimestampColor = "featurePeek_TimestampColor";
         String featurePeek_TypePrefixColor = "featurePeek_TypePrefixColor";
         String featurePeek_SourceTabIndicatorColor = "featurePeek_SourceTabIndicatorColor";
@@ -368,6 +369,7 @@ public interface ModernChatConfigBase extends
         PEEK_FADE_ENABLED(Keys.featurePeek_FadeEnabled, Kind.BOOL, ModernChatConfigBase::featurePeek_FadeEnabled),
         PEEK_FADE_DELAY(Keys.featurePeek_FadeDelay, Kind.INT, ModernChatConfigBase::featurePeek_FadeDelay),
         PEEK_FADE_DURATION(Keys.featurePeek_FadeDuration, Kind.INT, ModernChatConfigBase::featurePeek_FadeDuration),
+        PEEK_UNFADE_ON_COLLAPSED(Keys.featurePeek_UnfadeOnCollapsed, Kind.BOOL, ModernChatConfigBase::featurePeek_UnfadeOnCollapsed),
         PEEK_TIMESTAMP_COLOR(Keys.featurePeek_TimestampColor, Kind.COLOR, ModernChatConfigBase::featurePeek_TimestampColor),
         PEEK_TYPE_PREFIX_COLOR(Keys.featurePeek_TypePrefixColor, Kind.COLOR, ModernChatConfigBase::featurePeek_TypePrefixColor),
 
@@ -660,6 +662,7 @@ public interface ModernChatConfigBase extends
         @Override public int featurePeek_FadeDuration() { return getInt(Keys.featurePeek_FadeDuration, DEFAULTS.featurePeek_FadeDuration()); }
         @Override public String featurePeek_SourceTabKey() { return getString(Keys.featurePeek_SourceTabKey, DEFAULTS.featurePeek_SourceTabKey()); }
         @Override public boolean featurePeek_SuppressFadeAtGE() { return getBool(Keys.featurePeek_SuppressFadeAtGE, DEFAULTS.featurePeek_SuppressFadeAtGE()); }
+        @Override public boolean featurePeek_UnfadeOnCollapsed() { return getBool(Keys.featurePeek_UnfadeOnCollapsed, DEFAULTS.featurePeek_UnfadeOnCollapsed()); }
         @Override public Color featurePeek_TimestampColor() { return getColor(Keys.featurePeek_TimestampColor, DEFAULTS.featurePeek_TimestampColor()); }
         @Override public Color featurePeek_TypePrefixColor() { return getColor(Keys.featurePeek_TypePrefixColor, DEFAULTS.featurePeek_TypePrefixColor()); }
         @Override public Color featurePeek_SourceTabIndicatorColor() { return getColor(Keys.featurePeek_SourceTabIndicatorColor, DEFAULTS.featurePeek_SourceTabIndicatorColor()); }
