@@ -2308,6 +2308,14 @@ public class ChatOverlay extends OverlayPanel
         if (chatboxParent == null)
             return;
 
+        // Already at the requested size; skipping avoids refreshChat() retriggering
+        // BUILD_CHATBOX -> onScriptPostFired -> resizeChatbox in a rebuild loop.
+        if (chatViewport.getOriginalWidth() == width && chatViewport.getOriginalHeight() == height
+            && chatboxParent.getOriginalWidth() == width && chatboxParent.getOriginalHeight() == height
+            && chatboxParent.getWidthMode() == WidgetSizeMode.ABSOLUTE
+            && chatboxParent.getHeightMode() == WidgetSizeMode.ABSOLUTE)
+            return;
+
         chatViewport.setOriginalHeight(height);
         chatViewport.setOriginalWidth(width);
 
