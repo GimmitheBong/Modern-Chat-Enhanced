@@ -43,13 +43,106 @@ public class ChatUtil
     public static class SenderReceiver {
         String senderName;
         String receiverName;
-        int senderIconId; // -1 if none
+        int senderIconId; // -1 if none (first icon when multiple)
+        List<Integer> senderIconIds; // all icons in order, empty if none
     }
 
     public static int extractIconId(@Nullable String name) {
         if (name == null || name.isEmpty()) return -1;
         Matcher m = IMG_TAG_PATTERN.matcher(name);
         return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
+
+    public static List<Integer> extractIconIds(@Nullable String name) {
+        if (name == null || name.isEmpty()) return List.of();
+        List<Integer> ids = null;
+        Matcher m = IMG_TAG_PATTERN.matcher(name);
+        while (m.find()) {
+            if (ids == null) ids = new ArrayList<>();
+            ids.add(Integer.parseInt(m.group(1)));
+        }
+        return ids == null ? List.of() : ids;
+    }
+
+    /**
+     * Strips formatting tags the way the Force Recolor plugin's removeMostTags does:
+     * every tag is removed EXCEPT &lt;lt&gt;, &lt;gt&gt; and &lt;img=N&gt; (case-sensitive,
+     * digits only), and NBSP (U+00A0) is then normalized to a regular space - the original
+     * plugin appends that replace so multi-word patterns still match NBSP-separated text.
+     * Force Recolor patterns are built from Text.escapeJagex'd text, so the surviving
+     * lt/gt entities line up with the escaped pattern text when matching.
+     */
+    public static String removeMostTags(@Nullable String s) {
+        String stripped = stripTags(s, false);
+        if (stripped == null || stripped.isEmpty()) return stripped;
+        return stripped.replace('\u00A0', ' ');
+    }
+
+    /**
+     * Strips only color tags (&lt;col=...&gt;, &lt;colNORMAL&gt;, &lt;/col&gt;) so an outer
+     * color wrapper actually wins; all other tags (&lt;img=N&gt;, &lt;lt&gt;, &lt;gt&gt;,
+     * &lt;br&gt;, ...) are preserved.
+     */
+    public static String removeColorTags(@Nullable String s) {
+        return stripTags(s, true);
+    }
+
+    private static String stripTags(@Nullable String s, boolean colorTagsOnly) {
+        if (s == null || s.isEmpty() || s.indexOf('<') < 0) return s;
+
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); ) {
+            char ch = s.charAt(i);
+            if (ch != '<') {
+                out.append(ch);
+                i++;
+                continue;
+            }
+
+            int j = s.indexOf('>', i + 1);
+            if (j < 0) {
+                // Unterminated tag: keep the remainder as-is. The original Force Recolor
+                // plugin strips tags with a regex that requires a closing '>', so
+                // unterminated text is never consumed as a tag there either.
+                out.append(s, i, s.length());
+                break;
+            }
+
+            boolean keep;
+            if (colorTagsOnly) {
+                // Match parseRich's case-insensitive color tag detection:
+                // <col=HEX>, <colHEX>, <colNORMAL>, </col>
+                keep = !(s.regionMatches(true, i + 1, "col", 0, 3)
+                    || (j - i - 1 == 4 && s.regionMatches(true, i + 1, "/col", 0, 4)));
+            } else {
+                keep = isKeptMatchTag(s, i + 1, j);
+            }
+            if (keep) {
+                out.append(s, i, j + 1);
+            }
+            i = j + 1;
+        }
+        return out.toString();
+    }
+
+    /**
+     * Case-sensitive keep rule matching the original Force Recolor plugin's
+     * removeMostTags: only &lt;lt&gt;, &lt;gt&gt; and &lt;img=N&gt; (N = digits) survive.
+     * The tag body spans {@code [start, end)} of {@code s} (angle brackets excluded).
+     */
+    private static boolean isKeptMatchTag(String s, int start, int end) {
+        int len = end - start;
+        if (len == 2) {
+            return s.regionMatches(start, "lt", 0, 2) || s.regionMatches(start, "gt", 0, 2);
+        }
+        if (len > 4 && s.regionMatches(start, "img=", 0, 4)) {
+            for (int k = start + 4; k < end; k++) {
+                char c = s.charAt(k);
+                if (c < '0' || c > '9') return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     public static boolean isPrivateMessage(ChatMessageType t) {
@@ -166,8 +259,8 @@ public class ChatUtil
         String name = msg.getName();
         ChatMessageType type = msg.getType();
 
-        // Extract icon ID from the raw name *before* stripping tags
-        int senderIconId = -1;
+        // Extract icon IDs from the raw name *before* stripping tags
+        List<Integer> senderIconIds = List.of();
 
         if (type == ChatMessageType.PRIVATECHATOUT) {
             // For outgoing PMs, the "name" is the receiver - no sender icon
@@ -175,21 +268,21 @@ public class ChatUtil
             senderName = "You";
         }
         else if (type == ChatMessageType.PRIVATECHAT) {
-            // For incoming PMs, the "name" is the sender - extract their icon
-            senderIconId = extractIconId(name);
+            // For incoming PMs, the "name" is the sender - extract their icons
+            senderIconIds = extractIconIds(name);
             receiverName = localPlayerName;
             senderName = name != null ? Text.removeTags(name) : null;
         }
         else if (ChatUtil.isClanMessage(type) || ChatUtil.isFriendsChatMessage(type)) {
-            senderIconId = extractIconId(name);
+            senderIconIds = extractIconIds(name);
             senderName = name != null ? Text.removeTags(name) : null;
         }
         else if (senderName == null) {
-            senderIconId = extractIconId(name);
+            senderIconIds = extractIconIds(name);
             senderName = name != null ? Text.removeTags(name) : null;
         }
         else {
-            senderIconId = extractIconId(senderName);
+            senderIconIds = extractIconIds(senderName);
             senderName = Text.removeTags(senderName);
         }
 
@@ -197,7 +290,8 @@ public class ChatUtil
             receiverName = localPlayerName;
         }
 
-        return new SenderReceiver(senderName, receiverName, senderIconId);
+        int senderIconId = senderIconIds.isEmpty() ? -1 : senderIconIds.get(0);
+        return new SenderReceiver(senderName, receiverName, senderIconId, List.copyOf(senderIconIds));
     }
 
     public static String getCustomPrefix(ChatMessage msg) {
@@ -292,6 +386,11 @@ public class ChatUtil
         ChatMessageBuilder builder = new ChatMessageBuilder();
 
         if (!StringUtil.isNullOrEmpty(senderName)) {
+            // Render account-type icons (ironman, leagues, etc.) before the sender name.
+            // senderName itself stays tag-free - it is used for tab keys and target names.
+            for (int iconId : senderReceiver.getSenderIconIds()) {
+                builder.img(iconId);
+            }
             builder.append(senderName, false).append(": ");
         }
 

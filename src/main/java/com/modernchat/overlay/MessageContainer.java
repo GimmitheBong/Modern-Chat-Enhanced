@@ -98,7 +98,7 @@ public class MessageContainer extends Overlay
     protected FontStyle lineFontStyle = null;
 
     // Viewport and scrolling
-    @Getter protected Rectangle lastViewport = null;
+    @Getter protected volatile Rectangle lastViewport = null;
     protected final Rectangle msgViewport = new Rectangle();
     @Getter @Setter protected int scrollOffsetPx = 0;
     protected int contentHeightPx = 0;
@@ -175,6 +175,7 @@ public class MessageContainer extends Overlay
 
         // Cache the viewport for wheel/drag hit-tests
         lastViewport = calculateViewPort(vp);
+        if (lastViewport == null) return null;
 
         // Padding and layout
         final Padding pad = config.getPadding();
@@ -528,6 +529,7 @@ public class MessageContainer extends Overlay
         if (forceRecolorService != null) {
             Color forceColor = forceRecolorService.getRecolorForMessage(s, type, isTransparentBackdrop());
             if (forceColor != null) {
+                log.debug("Applying force recolor to {} message (peekOverlay={})", type, isPeekOverlay);
                 // Apply ForceRecolor only to message body, sender gets base color
                 messageToRender = applyForceRecolorToBody(s, sender, baseColor, forceColor);
             }
@@ -564,7 +566,7 @@ public class MessageContainer extends Overlay
 
         // If no sender, color the entire message with ForceRecolor
         if (sender == null || sender.isEmpty()) {
-            return forceTag + message + endTag;
+            return forceTag + stripBodyColorTags(message) + endTag;
         }
 
         // Find the ": " separator after the sender name
@@ -580,11 +582,29 @@ public class MessageContainer extends Overlay
                 : "FFFFFF";
             String baseTag = "<col=" + baseHex + ">";
 
-            return baseTag + senderPart + endTag + forceTag + bodyPart + endTag;
+            return baseTag + senderPart + endTag + forceTag + stripBodyColorTags(bodyPart) + endTag;
         }
 
-        // Fallback: color the entire message with ForceRecolor if no separator found
-        return forceTag + message + endTag;
+        // Sender present but no ": " separator (e.g. DIALOG messages where the sender's
+        // color tag wraps the entire line): leave the message untouched - stripping
+        // color tags here would destroy the sender's own color wrap.
+        return message;
+    }
+
+    /**
+     * Removes embedded color tags from the message body so the ForceRecolor wrapper actually
+     * wins - game messages frequently carry their own <col> tags, and during parseRich an
+     * embedded tag overrides the outer wrapper for the rest of the line. Non-color tags
+     * (<img=N>, <lt>, <gt>, <br>, ...) are preserved.
+     */
+    private String stripBodyColorTags(String body) {
+        String stripped = ChatUtil.removeColorTags(body);
+        if (log.isDebugEnabled() && stripped.length() != body.length()) {
+            long removedTags = body.chars().filter(c -> c == '<').count()
+                - stripped.chars().filter(c -> c == '<').count();
+            log.debug("ForceRecolor: stripped {} embedded color tag(s) from message body", removedTags);
+        }
+        return stripped;
     }
 
     private RichLine parseRich(String s, Color base, ChatMessageType type, long timestamp, String prefix, String sender) {

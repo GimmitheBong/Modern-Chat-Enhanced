@@ -41,18 +41,18 @@ public class ClientUtil
      * MUST be on client thread.
      */
     public static boolean isSystemTextEntryActive(Client client) {
-        // The deob client's varbit cache (client.sy) can be null very early in
-        // the lifecycle (pre-login, before any varbit script has loaded), and
-        // PostClientTick can fire in that window. Treat any failure as "no
-        // system text entry active" — widget fallbacks below are naturally
-        // safe since getWidget returns null when interfaces aren't loaded.
+        // INPUT_TYPE is a VarClient int id, so it must be read as a varc int.
+        // Varc access can still fail very early in the client lifecycle
+        // (pre-login); treat any failure as "no system text entry active" -
+        // the widget fallbacks below are naturally safe since getWidget
+        // returns null when interfaces aren't loaded.
         try {
-            int type = client.getVarbitValue(VarClientInt.INPUT_TYPE);
+            int type = client.getVarcIntValue(VarClientInt.INPUT_TYPE);
             if (type != 0 && type != 1) {
                 return true;
             }
         } catch (Throwable ignored) {
-            // varbit cache not ready yet
+            // varc cache not ready yet
         }
 
         // Fallback: the system prompts
@@ -243,10 +243,11 @@ public class ClientUtil
 
     public static boolean isChatInputEditable(Client client) {
         try {
-            if (client.getVarbitValue(VarClientInt.INPUT_TYPE) != 0)
+            // INPUT_TYPE is a VarClient int id, so it must be read as a varc int
+            if (client.getVarcIntValue(VarClientInt.INPUT_TYPE) != 0)
                 return false;
         } catch (Throwable ignored) {
-            // varbit cache not ready yet — fall through to widget check
+            // varc cache not ready yet - fall through to widget check
         }
 
         Widget w = ClientUtil.getChatInputWidget(client);

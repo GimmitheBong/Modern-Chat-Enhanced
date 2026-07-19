@@ -28,6 +28,8 @@ public interface MessageContainerConfig extends ChatColors
 
     boolean isFadeEnabled();
 
+    boolean isUnfadeOnCollapsed();
+
     Point getOffset();
 
     Margin getMargin();
@@ -115,6 +117,11 @@ public interface MessageContainerConfig extends ChatColors
         @Override
         public boolean isFadeEnabled() {
             return false;
+        }
+
+        @Override
+        public boolean isUnfadeOnCollapsed() {
+            return true;
         }
 
         @Override

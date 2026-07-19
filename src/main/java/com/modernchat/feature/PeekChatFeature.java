@@ -133,6 +133,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public int featurePeek_FadeDuration() { return config.featurePeek_FadeDuration(); }
 			@Override public String featurePeek_SourceTabKey() { return config.featurePeek_SourceTabKey(); }
 			@Override public boolean featurePeek_SuppressFadeAtGE() { return config.featurePeek_SuppressFadeAtGE(); }
+			@Override public boolean featurePeek_UnfadeOnCollapsed() { return config.featurePeek_UnfadeOnCollapsed(); }
 			@Override public boolean featurePeek_ShowNpcMessages() { return config.featurePeek_ShowNpcMessages(); }
 			@Override public boolean featurePeek_ShowCurrentTab() { return config.featurePeek_ShowCurrentTab(); }
 
@@ -159,6 +160,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public boolean isFadeEnabled() { return cfg.featurePeek_FadeEnabled(); }
 			@Override public int getFadeDelay() { return cfg.featurePeek_FadeDelay(); }
 			@Override public int getFadeDuration() { return cfg.featurePeek_FadeDuration(); }
+			@Override public boolean isUnfadeOnCollapsed() { return cfg.featurePeek_UnfadeOnCollapsed(); }
 			@Override public Point getOffset() { return new Point(cfg.featurePeek_OffsetX(), cfg.featurePeek_OffsetY()); }
 			@Override public Margin getMargin() { return new Margin(0, cfg.featurePeek_MarginBottom(), 0, cfg.featurePeek_MarginRight()); }
 			@Override public Padding getPadding() { return new Padding(cfg.featurePeek_Padding()); }
