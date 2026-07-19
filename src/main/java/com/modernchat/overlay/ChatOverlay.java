@@ -2816,7 +2816,7 @@ public class ChatOverlay extends OverlayPanel
                 }
                 return false;
             } else {
-                if (e.getButton() == MouseEvent.BUTTON1)
+                if (e.getButton() == MouseEvent.BUTTON1 && !config.isPreserveFocusOnOutsideClick())
                     inputFocused = false;
             }
             return false;
