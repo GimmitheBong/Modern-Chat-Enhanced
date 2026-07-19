@@ -110,6 +110,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 @Slf4j
 @Singleton
@@ -198,9 +199,12 @@ public class ChatOverlay extends OverlayPanel
     private static final int BADGE_SHRINK_PX = 4;  // shrink when thin
     private static final int BADGE_THIN_THRESHOLD = 120; // tab content width threshold
 
-    @Getter private boolean hidden = false;
+    @Getter private volatile boolean hidden = false;
     @Getter private boolean legacyShowing = false;
     @Getter private boolean wasHidden = false;
+
+    // Shared decider for message containers; runs on the AWT mouse thread
+    private final Function<MessageContainer, Boolean> containerCanShowDecider = c -> !isHidden();
 
     @Getter private int desiredChatWidth;
     @Getter private int desiredChatHeight;
@@ -296,6 +300,7 @@ public class ChatOverlay extends OverlayPanel
 
         messageContainers.forEach((mode, container) -> {
             container.setChromeEnabled(true);
+            container.setCanShowDecider(containerCanShowDecider);
             container.startUp(containerConfig, ChatMode.valueOf(mode));
         });
 
@@ -304,15 +309,18 @@ public class ChatOverlay extends OverlayPanel
         allContainer.setChromeEnabled(true);
         allContainer.setMaxLines(ALL_TAB_MAX_LINES);
         allContainer.setApplyChannelFilters(true);
+        allContainer.setCanShowDecider(containerCanShowDecider);
         allContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         // Initialize Game and Trade containers (read-only tabs)
         gameContainer = messageContainerProvider.get();
         gameContainer.setChromeEnabled(true);
+        gameContainer.setCanShowDecider(containerCanShowDecider);
         gameContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         tradeContainer = messageContainerProvider.get();
         tradeContainer.setChromeEnabled(true);
+        tradeContainer.setCanShowDecider(containerCanShowDecider);
         tradeContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         refreshTabs();
@@ -1815,6 +1823,11 @@ public class ChatOverlay extends OverlayPanel
         if (hidden) {
             unfocusInput();
             resizePanel.resetCursor();
+            // Drop the cached viewport so the container's global mouse listener can't
+            // hit-test against a stale rect while the overlay is hidden; render()
+            // repopulates it when the overlay is shown again
+            if (messageContainer != null)
+                messageContainer.clearChatWidget();
         } else {
             focusInput();
         }
@@ -2186,6 +2199,7 @@ public class ChatOverlay extends OverlayPanel
         if (container == null) {
             container = messageContainerProvider.get();
             container.setPrivate(true);
+            container.setCanShowDecider(containerCanShowDecider);
             container.startUp(config.getMessageContainerConfig(), ChatMode.PRIVATE);
             privateContainers.put(targetName, container);
 
