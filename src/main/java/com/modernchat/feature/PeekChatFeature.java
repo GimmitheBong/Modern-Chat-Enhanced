@@ -11,9 +11,11 @@ import com.modernchat.draw.ChatColors;
 import com.modernchat.draw.Margin;
 import com.modernchat.draw.Padding;
 import com.modernchat.draw.RichLine;
+import com.modernchat.draw.Tab;
 import com.modernchat.event.ChatMenuOpenedEvent;
 import com.modernchat.event.ModernChatVisibilityChangeEvent;
 import com.modernchat.event.SetPeekSourceEvent;
+import com.modernchat.event.TabChangeEvent;
 import com.modernchat.event.TabClosedEvent;
 import com.modernchat.overlay.ChannelFilterState;
 import com.modernchat.overlay.ChatOverlay;
@@ -80,6 +82,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 		int featurePeek_FadeDelay();
 		int featurePeek_FadeDuration();
 		String featurePeek_SourceTabKey();
+		boolean featurePeek_ShowCurrentTab();
 		boolean featurePeek_SuppressFadeAtGE();
 		boolean featurePeek_UnfadeOnCollapsed();
 	}
@@ -126,6 +129,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public int featurePeek_FadeDelay() { return config.featurePeek_FadeDelay(); }
 			@Override public int featurePeek_FadeDuration() { return config.featurePeek_FadeDuration(); }
 			@Override public String featurePeek_SourceTabKey() { return config.featurePeek_SourceTabKey(); }
+			@Override public boolean featurePeek_ShowCurrentTab() { return config.featurePeek_ShowCurrentTab(); }
 			@Override public boolean featurePeek_SuppressFadeAtGE() { return config.featurePeek_SuppressFadeAtGE(); }
 			@Override public boolean featurePeek_UnfadeOnCollapsed() { return config.featurePeek_UnfadeOnCollapsed(); }
 			@Override public boolean featurePeek_ShowNpcMessages() { return config.featurePeek_ShowNpcMessages(); }
@@ -204,6 +208,13 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 		chatPeekOverlay.startUp(partitionConfig(config), ChatMode.PUBLIC, false);
 
 		overlayManager.add(chatPeekOverlay);
+
+		if (config.featurePeek_ShowCurrentTab()) {
+			// Populate peek overlay with initial active tab
+			Tab activeTab = chatOverlay.getActiveTab();
+			String initialTabKey = activeTab != null ? activeTab.getKey() : "ALL";
+			populateFromTabContainer(initialTabKey);
+		}
 	}
 
 	@Override
@@ -290,7 +301,16 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 	}
 
 	private boolean shouldShowMessageForPeekSource(MessageLine line) {
-		String sourceKey = config.featurePeek_SourceTabKey();
+		String sourceKey;
+		if (config.featurePeek_ShowCurrentTab()) {
+			// Use the currently active chat tab as the source
+			Tab activeTab = chatOverlay.getActiveTab();
+			sourceKey = activeTab != null ? activeTab.getKey() : "ALL";
+		} else {
+			// Use the configured peek source tab
+			sourceKey = config.featurePeek_SourceTabKey();
+		}
+
 		if (StringUtil.isNullOrEmpty(sourceKey)) {
 			return true; // Show all messages when no source is set
 		}
@@ -384,10 +404,18 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 	}
 
 	private void setPeekSource(String tabKey) {
-		configManager.setConfiguration(ModernChatConfig.GROUP, ModernChatConfigBase.Keys.featurePeek_SourceTabKey,
-			tabKey == null ? "" : tabKey);
+		String effectiveTabKey = tabKey;
+		if (config.featurePeek_ShowCurrentTab()) {
+			// If showing current tab, force sourceKey to active tab and don't save to config
+			Tab activeTab = chatOverlay.getActiveTab();
+			effectiveTabKey = activeTab != null ? activeTab.getKey() : "ALL";
+		} else {
+			// Otherwise, use provided tabKey and save to config
+			configManager.setConfiguration(ModernChatConfig.GROUP, ModernChatConfigBase.Keys.featurePeek_SourceTabKey,
+				tabKey == null ? "" : tabKey);
+		}
 		chatPeekOverlay.clearMessages();
-		populateFromTabContainer(tabKey);
+		populateFromTabContainer(effectiveTabKey);
 		chatPeekOverlay.resetFade();
 	}
 
@@ -439,6 +467,20 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 	@Subscribe
 	public void onModernChatVisibilityChangeEvent(ModernChatVisibilityChangeEvent e) {
 		chatPeekOverlay.setHidden(e.isVisible());
+		chatPeekOverlay.resetFade();
+	}
+
+	@Subscribe
+	public void onTabChangeEvent(TabChangeEvent e) {
+		if (!config.featurePeek_ShowCurrentTab())
+			return;
+
+		if (chatPeekOverlay == null || !chatPeekOverlay.canShow())
+			return;
+
+		// Repopulate peek overlay when active tab changes
+		chatPeekOverlay.clearMessages();
+		populateFromTabContainer(e.getNewTab().getKey());
 		chatPeekOverlay.resetFade();
 	}
 

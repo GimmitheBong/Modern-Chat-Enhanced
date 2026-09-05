@@ -1718,6 +1718,18 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         return true;
     }
 
+    @ConfigItem(
+        keyName = Keys.featurePeek_ShowCurrentTab,
+        name = "Always Use Current Tab as Source",
+        description = "Always use the currently active chat tab as the peek overlay source, ignoring the configured Peek Source Tab",
+        position = 27,
+        section = peekOverlaySection
+    )
+    @Override
+    default boolean featurePeek_ShowCurrentTab() {
+        return false;
+    }
+
     /* ------------ Feature: Commands ------------ */
 
     @ConfigItem(
