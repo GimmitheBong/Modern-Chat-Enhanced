@@ -34,12 +34,10 @@ public class PlayerMenuService
 {
     private static final int ADD_FRIEND_OP = 6;
     private static final int ADD_IGNORE_OP = 7;
-    private static final int REPORT_OP = 8;
 
     private static final String ADD_FRIEND = "Add friend";
     private static final String ADD_IGNORE = "Add ignore";
     private static final String LOOKUP = "Look up";
-    private static final String REPORT = "Report";
     private static final String COPY_TO_CLIPBOARD = "Copy to clipboard";
 
     private final Client client;
@@ -96,12 +94,6 @@ public class PlayerMenuService
             .setTarget(username)
             .setType(MenuAction.RUNELITE)
             .onClick(entry -> lookupPlayer(username, messageId));
-
-        client.getMenu().createMenuEntry(1)
-            .setOption(REPORT)
-            .setTarget(username)
-            .setType(MenuAction.RUNELITE)
-            .onClick(entry -> invokeLegacyChatAction(username, messageId, REPORT, REPORT_OP));
 
         client.getMenu().createMenuEntry(1)
             .setOption(COPY_TO_CLIPBOARD)

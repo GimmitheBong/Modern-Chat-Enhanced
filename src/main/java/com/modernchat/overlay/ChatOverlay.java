@@ -2737,7 +2737,7 @@ public class ChatOverlay extends OverlayPanel
                 && !e.isAltDown()
                 && !client.isMenuOpen()
                 && lastViewport != null
-                && lastViewport.contains(e.getPoint());
+                && lastViewport.contains(ClientUtil.getMouseCanvasPoint(client, e));
             if (shouldBlock && !clickThroughNotificationSent) {
                 notificationService.pushHelperNotification(new ChatMessageBuilder()
                     .append("Left-click did not pass through the chat because ")
@@ -2786,8 +2786,10 @@ public class ChatOverlay extends OverlayPanel
             if (!isEnabled() || isHidden())
                 return e;
 
+            java.awt.Point p = ClientUtil.getMouseCanvasPoint(client, e);
+
             // Scroll the tab bar when the cursor is over it
-            if (tabsBarBounds.contains(e.getPoint())) {
+            if (tabsBarBounds.contains(p)) {
                 final double rot = e.getPreciseWheelRotation(); // +ve = wheel down
                 final int step = e.isShiftDown() ? TAB_WHEEL_STEP * 2 : TAB_WHEEL_STEP;
                 tabsScrollPx += (int) Math.round(rot * step);   // down -> scroll right
@@ -2799,7 +2801,7 @@ public class ChatOverlay extends OverlayPanel
             // Warn once if scrolling is disabled but user tries to scroll in message area
             if (!config.getMessageContainerConfig().isScrollable()
                     && lastViewport != null
-                    && lastViewport.contains(e.getPoint())
+                    && lastViewport.contains(p)
                     && !scrollDisabledNotificationSent) {
                 notificationService.pushHelperNotification(new ChatMessageBuilder()
                     .append("Scrolling is disabled because ")
@@ -2826,9 +2828,10 @@ public class ChatOverlay extends OverlayPanel
             if (lastViewport == null)
                 return false;
 
+            java.awt.Point p = ClientUtil.getMouseCanvasPoint(client, e);
+
             // Handle filter dropdown clicks first (it's rendered on top)
             if (filterDropdown != null && filterDropdown.isVisible()) {
-                java.awt.Point p = e.getPoint();
                 DropdownItem<ChannelFilterType> item = filterDropdown.itemAt(p);
                 if (item != null && e.getButton() == MouseEvent.BUTTON1) {
                     // Toggle the filter
@@ -2849,7 +2852,7 @@ public class ChatOverlay extends OverlayPanel
                 return false;
             }
 
-            if (!lastViewport.contains(e.getPoint())) {
+            if (!lastViewport.contains(p)) {
                 // Close dropdown if clicking outside
                 if (filterDropdown != null && filterDropdown.isVisible()) {
                     filterDropdown.close();
@@ -2868,7 +2871,7 @@ public class ChatOverlay extends OverlayPanel
             }
 
             // Handle filter button click
-            if (shouldShowFilterButton() && filterButtonBounds.contains(e.getPoint())) {
+            if (shouldShowFilterButton() && filterButtonBounds.contains(p)) {
                 if (e.getButton() == MouseEvent.BUTTON1) {
                     if (filterDropdown == null || !filterDropdown.isVisible()) {
                         initFilterDropdown();
@@ -2882,18 +2885,18 @@ public class ChatOverlay extends OverlayPanel
             }
 
             // Handle report button click
-            if (mainConfig.featureRedesign_ShowReportButton() && reportButtonBounds.contains(e.getPoint())) {
+            if (mainConfig.featureRedesign_ShowReportButton() && reportButtonBounds.contains(p)) {
                 if (e.getButton() == MouseEvent.BUTTON1) {
                     // TODO: figure out how we can invoke the report display
                 }
             }
 
-            if (tabsBarBounds.contains(e.getPoint())) {
+            if (tabsBarBounds.contains(p)) {
                 for (Tab t : tabOrder) {
-                    if (!t.getBounds().contains(e.getPoint())) continue;
+                    if (!t.getBounds().contains(p)) continue;
 
                     // Close button (LMB only)
-                    if (t.isCloseable() && t.getCloseBounds().contains(e.getPoint())) {
+                    if (t.isCloseable() && t.getCloseBounds().contains(p)) {
                         if (e.getButton() != MouseEvent.BUTTON1)
                             return false;
 
@@ -2905,14 +2908,14 @@ public class ChatOverlay extends OverlayPanel
 
                     // Prepare drag/click (LEFT only); don't select yet
                     if (e.getButton() == MouseEvent.BUTTON1) {
-                        pressX = e.getX();
+                        pressX = p.x;
                         dragTab = t;
                         draggingTab = false;
                         didReorder = false;
                         pendingSelectTabKey = t.getKey();
 
                         Rectangle b = t.getBounds();
-                        dragOffsetX = e.getX() - b.x;
+                        dragOffsetX = p.x - b.x;
                         dragVisualX = b.x;
                         dragStartIndex = tabOrder.indexOf(t);
                         dragTargetIndex = dragStartIndex; // initial predicted drop index
@@ -2943,7 +2946,7 @@ public class ChatOverlay extends OverlayPanel
             }
 
             // Input focus + selection: LMB only
-            if (inputBounds.contains(e.getPoint())) {
+            if (inputBounds.contains(p)) {
                 if (e.getButton() == MouseEvent.BUTTON1) {
                     inputFocused = true;
 
@@ -2952,7 +2955,7 @@ public class ChatOverlay extends OverlayPanel
                     String prefix = getPlayerPrefix();
                     int prefixW = fm.stringWidth(prefix);
 
-                    int clickedIdx = indexFromMouseX(fm, e.getX(), inputBounds.x, inputBounds.width, prefixW);
+                    int clickedIdx = indexFromMouseX(fm, p.x, inputBounds.x, inputBounds.width, prefixW);
                     if (e.isShiftDown()) {
                         if (!hasSelection()) selAnchor = caret;
                         setCaretAndMaybeExtend(clickedIdx, true);
@@ -2993,13 +2996,15 @@ public class ChatOverlay extends OverlayPanel
             if (client.isMenuOpen())
                 return false;
 
+            java.awt.Point p = ClientUtil.getMouseCanvasPoint(client, e);
+
             // Selection drag
             if (selectingText && inputFocused) {
                 FontMetrics fm = getInputFontMetrics();
                 String prefix = getPlayerPrefix();
                 int prefixW = fm.stringWidth(prefix);
 
-                int idx = indexFromMouseX(fm, e.getX(), inputBounds.x, inputBounds.width, prefixW);
+                int idx = indexFromMouseX(fm, p.x, inputBounds.x, inputBounds.width, prefixW);
                 if (selAnchor == -1) selAnchor = caret;
                 caret = idx;
                 setSelectionRange(selAnchor, caret);
@@ -3010,13 +3015,13 @@ public class ChatOverlay extends OverlayPanel
             if (dragTab == null)
                 return false;
 
-            if (!draggingTab && Math.abs(e.getX() - pressX) >= DRAG_THRESHOLD_PX) {
+            if (!draggingTab && Math.abs(p.x - pressX) >= DRAG_THRESHOLD_PX) {
                 draggingTab = true;
             }
 
             if (draggingTab) {
                 // Tab visually follows the mouse
-                dragVisualX = e.getX() - dragOffsetX;
+                dragVisualX = p.x - dragOffsetX;
 
                 // Predict drop index from the dragged tabs current position,
                 // not the raw mouse X, this makes left/right drags feel symmetric.

@@ -25,7 +25,9 @@ import javax.annotation.Nullable;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +38,30 @@ public class ClientUtil
 {
     // Unfortunately this hack is required for KeyRemappingPlugin compatibility
     public static final String PRESS_ENTER_TO_CHAT = "Press Enter to Chat...";
+
+    /**
+     * Resolves a mouse event's position in real canvas space. With Stretched Mode
+     * enabled, the raw AWT event can arrive in stretched (window) coordinates when
+     * the stretched plugin's translating listener hasn't run ahead of ours (observed
+     * when the client boots with Stretched Mode already enabled), so prefer the
+     * client's own tracked canvas position - the same source the menu system uses -
+     * and fall back to the event point when it's unavailable.
+     */
+    public static Point getMouseCanvasPoint(Client client, MouseEvent e) {
+        return getMouseCanvasPoint(client.isStretchedEnabled(), client.getMouseCanvasPosition(), e);
+    }
+
+    static Point getMouseCanvasPoint(boolean stretched, net.runelite.api.Point canvasPos, MouseEvent e) {
+        if (!stretched)
+            return e.getPoint();
+
+        // (-1,-1) is the client's off-canvas sentinel (e.g. mid-drag past the canvas
+        // edge); hit-testing against it would snap drags, so treat it as unavailable
+        if (canvasPos == null || (canvasPos.getX() == -1 && canvasPos.getY() == -1))
+            return e.getPoint();
+
+        return new Point(canvasPos.getX(), canvasPos.getY());
+    }
 
     /**
      * MUST be on client thread.

@@ -144,12 +144,12 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 			@Override public boolean featurePeek_ShowNpcMessages() { return config.featurePeek_ShowNpcMessages(); }
 			@Override public boolean featurePeek_ShowCurrentTab() { return config.featurePeek_ShowCurrentTab(); }
 
-			public Color featurePeek_FriendsChatColor() { return config.general_FriendsChatColor(); }
-			public Color featurePeek_ClanChatColor() { return config.general_ClanChatColor(); }
-			public Color featurePeek_PrivateChatColor() { return config.general_PrivateChatColor(); }
-			public Color featurePeek_SystemChatColor() { return config.general_SystemChatColor(); }
-			public Color featurePeek_TradeChatColor() { return config.general_TradeChatColor(); }
-			public Color featurePeek_WelcomeChatColor() { return config.general_WelcomeChatColor(); }
+			@Override public Color getWelcomeColor() { return config.general_WelcomeChatColor(); }
+			@Override public Color getPrivateColor() { return config.general_PrivateChatColor(); }
+			@Override public Color getFriendColor() { return config.general_FriendsChatColor(); }
+			@Override public Color getClanColor() { return config.general_ClanChatColor(); }
+			@Override public Color getSystemColor() { return config.general_SystemChatColor(); }
+			@Override public Color getTradeColor() { return config.general_TradeChatColor(); }
 		};
 	}
 
