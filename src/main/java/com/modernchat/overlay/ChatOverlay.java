@@ -114,6 +114,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 @Slf4j
 @Singleton
@@ -172,6 +173,9 @@ public class ChatOverlay extends OverlayPanel
 
     @Getter private Rectangle lastViewport = null;
 
+    // Debounce for the render() All-tab fallback so a bad state can't warn every frame
+    private boolean allTabFallbackAttempted = false;
+
     // Input box state
     private final Rectangle inputBounds = new Rectangle();
     private boolean inputFocused = false;
@@ -202,9 +206,12 @@ public class ChatOverlay extends OverlayPanel
     private static final int BADGE_SHRINK_PX = 4;  // shrink when thin
     private static final int BADGE_THIN_THRESHOLD = 120; // tab content width threshold
 
-    @Getter private boolean hidden = false;
+    @Getter private volatile boolean hidden = false;
     @Getter private boolean legacyShowing = false;
     @Getter private boolean wasHidden = false;
+
+    // Shared decider for message containers; runs on the AWT mouse thread
+    private final Function<MessageContainer, Boolean> containerCanShowDecider = c -> !isHidden();
 
     @Getter private int desiredChatWidth;
     @Getter private int desiredChatHeight;
@@ -313,6 +320,7 @@ public class ChatOverlay extends OverlayPanel
         allContainer.setCanShowDecider(c -> !isHidden());
         allContainer.setMaxLines(ALL_TAB_MAX_LINES);
         allContainer.setApplyChannelFilters(true);
+        allContainer.setCanShowDecider(containerCanShowDecider);
         allContainer.startUp(containerConfig, ChatMode.PUBLIC);
 
         // Initialize Game and Trade containers (read-only tabs)
@@ -394,6 +402,15 @@ public class ChatOverlay extends OverlayPanel
 
         if (messageContainer == null) {
             selectTab(config.getDefaultChatMode());
+
+            // The default mode may have no tab (e.g. PUBLIC is replaced by the All tab),
+            // so fall back to the All tab rather than never rendering the overlay again.
+            // Only attempt once until refreshTabs runs again, so a pathological state
+            // can't warn every frame.
+            if (messageContainer == null && !allTabFallbackAttempted) {
+                allTabFallbackAttempted = true;
+                selectTabByKey(ALL_TAB_KEY);
+            }
 
             if (messageContainer == null)
                 return null;
@@ -1086,6 +1103,7 @@ public class ChatOverlay extends OverlayPanel
 
     public void refreshTabs() {
         tabsScrollPx = 0;
+        allTabFallbackAttempted = false;
 
         boolean isAutoClosePm = config.isAutoClosePrivateTab();
 
@@ -1615,7 +1633,11 @@ public class ChatOverlay extends OverlayPanel
             sub.createMenuEntry(index++)
                 .setOption("Clear messages")
                 .setType(MenuAction.RUNELITE)
-                .onClick(me -> clear());
+                .onClick(me -> {
+                    MessageContainer container = containerForTab(hovered);
+                    if (container != null)
+                        container.clearMessages();
+                });
 
             sub.createMenuEntry(index++)
                 .setOption("Move left")
@@ -1885,8 +1907,8 @@ public class ChatOverlay extends OverlayPanel
     }
 
     private void commitInput() {
-        final String text = getInputText().trim();
-        if (!text.isEmpty()) {
+        final String text = getInputText();
+        if (!text.trim().isEmpty()) {
             Player player = client.getLocalPlayer();
             if (player != null)
                 sendMessage(text);
