@@ -103,24 +103,20 @@ public class ImageService implements ChatService
         return bi;
     }
 
-    private static final class ModIconCacheEntry
-    {
+    private static final class ModIconCacheEntry {
         private final IndexedSprite source;
         private final Image image;
 
-        private ModIconCacheEntry(IndexedSprite source, Image image)
-        {
+        private ModIconCacheEntry(IndexedSprite source, Image image) {
             this.source = source;
             this.image = image;
         }
 
-        private IndexedSprite getSource()
-        {
+        private IndexedSprite getSource() {
             return source;
         }
 
-        private Image getImage()
-        {
+        private Image getImage() {
             return image;
         }
     }

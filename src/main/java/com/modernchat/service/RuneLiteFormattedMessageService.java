@@ -52,26 +52,22 @@ public class RuneLiteFormattedMessageService implements ChatService
     private final Map<Integer, PendingMessage> pendingMessages = new LinkedHashMap<>();
 
     @Inject
-    RuneLiteFormattedMessageService(EventBus eventBus)
-    {
+    RuneLiteFormattedMessageService(EventBus eventBus) {
         this(eventBus, System::nanoTime);
     }
 
-    RuneLiteFormattedMessageService(EventBus eventBus, LongSupplier nanoTime)
-    {
+    RuneLiteFormattedMessageService(EventBus eventBus, LongSupplier nanoTime) {
         this.eventBus = eventBus;
         this.nanoTime = nanoTime;
     }
 
     @Override
-    public void startUp()
-    {
+    public void startUp() {
         clear();
     }
 
     @Override
-    public void shutDown()
-    {
+    public void shutDown() {
         clear();
     }
 
@@ -80,27 +76,22 @@ public class RuneLiteFormattedMessageService implements ChatService
      *
      * @return a result already present on the node, otherwise {@code null}
      */
-    public synchronized @Nullable String observe(ChatMessage event)
-    {
+    public synchronized @Nullable String observe(ChatMessage event) {
         if (event == null || event.getMessageNode() == null
-            || !isSupportedCommand(event.getType(), event.getMessage()))
-        {
+            || !isSupportedCommand(event.getType(), event.getMessage())) {
             return null;
         }
 
         MessageNode node = event.getMessageNode();
         int messageId = node.getId();
-        if (messageId < 0)
-        {
+        if (messageId < 0) {
             return null;
         }
 
         PendingMessage existing = pendingMessages.get(messageId);
         String formattedBody = node.getRuneLiteFormatMessage();
-        if (formattedBody != null)
-        {
-            if (existing != null && existing.node != node)
-            {
+        if (formattedBody != null) {
+            if (existing != null && existing.node != node) {
                 // The id now belongs to a different chat row. Do not let the stale watch update it.
                 pendingMessages.remove(messageId);
             }
@@ -109,8 +100,7 @@ public class RuneLiteFormattedMessageService implements ChatService
             return formattedBody;
         }
 
-        if (existing == null || existing.node != node)
-        {
+        if (existing == null || existing.node != node) {
             existing = new PendingMessage(
                 node,
                 node.getValue(),
@@ -131,59 +121,48 @@ public class RuneLiteFormattedMessageService implements ChatService
      * Polls pending Modern Chat command rows. This is called from ModernChatPlugin's existing
      * PostClientTick subscriber, so update events are delivered on the client thread.
      */
-    public synchronized void poll()
-    {
-        if (pendingMessages.isEmpty())
-        {
+    public synchronized void poll() {
+        if (pendingMessages.isEmpty()) {
             return;
         }
 
         long now = nanoTime.getAsLong();
         List<RuneLiteChatMessageUpdatedEvent> updates = new ArrayList<>();
         Iterator<Map.Entry<Integer, PendingMessage>> iterator = pendingMessages.entrySet().iterator();
-        while (iterator.hasNext())
-        {
+        while (iterator.hasNext()) {
             Map.Entry<Integer, PendingMessage> entry = iterator.next();
             PendingMessage pending = entry.getValue();
 
-            if (now - pending.observedAtNanos >= MAX_PENDING_AGE_NANOS)
-            {
+            if (now - pending.observedAtNanos >= MAX_PENDING_AGE_NANOS) {
                 iterator.remove();
                 continue;
             }
 
             String formattedBody = pending.node.getRuneLiteFormatMessage();
-            if (formattedBody == null)
-            {
+            if (formattedBody == null) {
                 String currentValue = pending.node.getValue();
-                if (pending.acceptPlainValueChange(currentValue))
-                {
+                if (pending.acceptPlainValueChange(currentValue)) {
                     formattedBody = currentValue;
                 }
             }
 
-            if (formattedBody != null)
-            {
+            if (formattedBody != null) {
                 iterator.remove();
                 updates.add(new RuneLiteChatMessageUpdatedEvent(entry.getKey(), formattedBody));
             }
         }
 
-        for (RuneLiteChatMessageUpdatedEvent update : updates)
-        {
+        for (RuneLiteChatMessageUpdatedEvent update : updates) {
             eventBus.post(update);
         }
     }
 
-    public synchronized void clear()
-    {
+    public synchronized void clear() {
         pendingMessages.clear();
     }
 
-    static boolean isSupportedCommand(ChatMessageType type, @Nullable String message)
-    {
-        if (type == null || message == null || !COMMAND_MESSAGE_TYPES.contains(type))
-        {
+    static boolean isSupportedCommand(ChatMessageType type, @Nullable String message) {
+        if (type == null || message == null || !COMMAND_MESSAGE_TYPES.contains(type)) {
             return false;
         }
 
@@ -191,10 +170,8 @@ public class RuneLiteFormattedMessageService implements ChatService
         return !trimmed.isEmpty() && trimmed.charAt(0) == '!';
     }
 
-    private static boolean isPetsCommand(@Nullable String message)
-    {
-        if (message == null)
-        {
+    private static boolean isPetsCommand(@Nullable String message) {
+        if (message == null) {
             return false;
         }
 
@@ -204,13 +181,10 @@ public class RuneLiteFormattedMessageService implements ChatService
         return PETS_COMMAND.equalsIgnoreCase(command);
     }
 
-    private void trimToMaxSize()
-    {
-        while (pendingMessages.size() > MAX_PENDING_MESSAGES)
-        {
+    private void trimToMaxSize() {
+        while (pendingMessages.size() > MAX_PENDING_MESSAGES) {
             Iterator<Integer> iterator = pendingMessages.keySet().iterator();
-            if (!iterator.hasNext())
-            {
+            if (!iterator.hasNext()) {
                 return;
             }
             iterator.next();
@@ -229,16 +203,14 @@ public class RuneLiteFormattedMessageService implements ChatService
             MessageNode node,
             @Nullable String originalValue,
             boolean acceptsPlainValueChange,
-            long observedAtNanos)
-        {
+            long observedAtNanos) {
             this.node = node;
             this.originalValue = originalValue;
             this.acceptsPlainValueChange = acceptsPlainValueChange;
             this.observedAtNanos = observedAtNanos;
         }
 
-        private boolean acceptPlainValueChange(@Nullable String currentValue)
-        {
+        private boolean acceptPlainValueChange(@Nullable String currentValue) {
             return acceptsPlainValueChange
                 && currentValue != null
                 && !Objects.equals(originalValue, currentValue);

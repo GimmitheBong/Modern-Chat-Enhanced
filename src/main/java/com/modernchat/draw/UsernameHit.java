@@ -15,37 +15,30 @@ public final class UsernameHit
     private final String username;
     private final int messageId;
 
-    public UsernameHit(Rectangle bounds, String username, int messageId)
-    {
+    public UsernameHit(Rectangle bounds, String username, int messageId) {
         this.bounds = new Rectangle(Objects.requireNonNull(bounds, "bounds"));
         this.username = Objects.requireNonNull(username, "username");
         this.messageId = messageId;
     }
 
-    public Rectangle getBounds()
-    {
+    public Rectangle getBounds() {
         return new Rectangle(bounds);
     }
 
-    public String getUsername()
-    {
+    public String getUsername() {
         return username;
     }
 
-    public int getMessageId()
-    {
+    public int getMessageId() {
         return messageId;
     }
 
     @Override
-    public boolean equals(Object other)
-    {
-        if (this == other)
-        {
+    public boolean equals(Object other) {
+        if (this == other) {
             return true;
         }
-        if (!(other instanceof UsernameHit))
-        {
+        if (!(other instanceof UsernameHit)) {
             return false;
         }
 
@@ -56,14 +49,12 @@ public final class UsernameHit
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(bounds, username, messageId);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "UsernameHit{" +
             "bounds=" + bounds +
             ", username='" + username + '\'' +

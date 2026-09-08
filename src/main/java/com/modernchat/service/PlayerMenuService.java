@@ -57,8 +57,7 @@ public class PlayerMenuService
         Client client,
         ClientThread clientThread,
         PluginManager pluginManager,
-        NotificationService notificationService)
-    {
+        NotificationService notificationService) {
         this.client = client;
         this.clientThread = clientThread;
         this.pluginManager = pluginManager;
@@ -69,16 +68,13 @@ public class PlayerMenuService
      * Adds the standard username actions. Inserting every entry at index {@code 1} in this order
      * produces the same top-to-bottom order as the legacy RuneLite chat menu.
      */
-    public void addMenuEntries(UsernameHit hit)
-    {
-        if (hit == null)
-        {
+    public void addMenuEntries(UsernameHit hit) {
+        if (hit == null) {
             return;
         }
 
         final String username = hit.getUsername();
-        if (username == null || username.trim().isEmpty())
-        {
+        if (username == null || username.trim().isEmpty()) {
             return;
         }
 
@@ -109,8 +105,7 @@ public class PlayerMenuService
             .onClick(entry -> copyUsername(username));
     }
 
-    private void invokeChatAction(String username, int messageId, String action)
-    {
+    private void invokeChatAction(String username, int messageId, String action) {
         clientThread.invokeLater(() -> dispatchChatAction(username, messageId, action, 0));
     }
 
@@ -119,25 +114,20 @@ public class PlayerMenuService
      * is written to the chat input and the panel's Add Friend/Add Ignore action is dispatched. If
      * the panel is not loaded the social tab is opened once and the attempt retried.
      */
-    private void dispatchChatAction(String username, int messageId, String action, int phase)
-    {
-        try
-        {
+    private void dispatchChatAction(String username, int messageId, String action, int phase) {
+        try {
             final boolean ignore = ADD_IGNORE.equals(action);
-            if (!ADD_FRIEND.equals(action) && !ignore)
-            {
+            if (!ADD_FRIEND.equals(action) && !ignore) {
                 notifyUnavailable(action + " is unavailable for " + username + ".");
                 return;
             }
 
-            if (executeSocialPanelAdd(username, ignore))
-            {
+            if (executeSocialPanelAdd(username, ignore)) {
                 restoreSocialPanel();
                 return;
             }
 
-            if (phase == 0)
-            {
+            if (phase == 0) {
                 previousTab = rememberCurrentTab();
                 openSocialPanel();
                 clientThread.invokeAtTickEnd(() -> dispatchChatAction(username, messageId, action, 1));
@@ -146,9 +136,7 @@ public class PlayerMenuService
 
             restoreSocialPanel();
             notifyUnavailable(action + " is unavailable for " + username + ".");
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.warn("Unable to execute chat action {} for {}", action, username, ex);
             notifyUnavailable(action + " is unavailable for " + username + ".");
         }
@@ -158,8 +146,7 @@ public class PlayerMenuService
      * Dispatches the game's social-panel add action, mirroring how the client commits an entry
      * typed into the Add Friend / Add Ignore field.
      */
-    private boolean executeSocialPanelAdd(String username, boolean ignore)
-    {
+    private boolean executeSocialPanelAdd(String username, boolean ignore) {
         final String name = Text.removeTags(username);
         final String label = ignore ? "ignore" : "friends";
         final int boxId = ignore ? InterfaceID.Ignore.ADDIGNORE : InterfaceID.Friends.ADDFRIEND;
@@ -167,42 +154,34 @@ public class PlayerMenuService
 
         Widget universe = client.getWidget(universeId);
         Widget box = client.getWidget(boxId);
-        if (universe == null)
-        {
+        if (universe == null) {
             log.debug("chatmenu-panel: {} universe not loaded for {}", label, username);
         }
-        if (box == null)
-        {
+        if (box == null) {
             log.debug("chatmenu-panel: {} add box missing for {} (universe={})", label, username,
                 universe == null ? null : Integer.toHexString(universe.getId()));
             return false;
         }
 
         Object[] listener = box.getOnOpListener();
-        if (listener == null || listener.length == 0)
-        {
+        if (listener == null || listener.length == 0) {
             log.debug("chatmenu-panel: {} add box has no listener: id={} name={} text={} actions={}",
                 label, Integer.toHexString(box.getId()), box.getName(), box.getText(),
                 box.getActions() == null ? null : Arrays.toString(box.getActions()));
             return false;
         }
 
-        try
-        {
+        try {
             client.setVarcStrValue(VarClientStr.INPUT_TEXT, name);
             client.setVarcIntValue(VarClientInt.INPUT_TYPE, 1);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.debug("Unable to seed the chat input", ex);
         }
 
         Object[] args = new Object[listener.length];
         System.arraycopy(listener, 0, args, 0, listener.length);
-        for (int i = 0; i < args.length; i++)
-        {
-            if (ScriptEvent.NAME.equals(args[i]))
-            {
+        for (int i = 0; i < args.length; i++) {
+            if (ScriptEvent.NAME.equals(args[i])) {
                 args[i] = name;
             }
         }
@@ -218,95 +197,67 @@ public class PlayerMenuService
         return true;
     }
 
-    private String inputState()
-    {
-        try
-        {
+    private String inputState() {
+        try {
             return "INPUT_TYPE=" + client.getVarcIntValue(VarClientInt.INPUT_TYPE)
                 + " INPUT_TEXT=" + client.getVarcStrValue(VarClientStr.INPUT_TEXT);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             return "INPUT state=unknown";
         }
     }
 
-    private int rememberCurrentTab()
-    {
-        try
-        {
+    private int rememberCurrentTab() {
+        try {
             return client.getVarcIntValue(VarClientInt.INVENTORY_TAB);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             return Integer.MIN_VALUE;
         }
     }
 
-    private void openSocialPanel()
-    {
-        try
-        {
+    private void openSocialPanel() {
+        try {
             client.setVarcIntValue(VarClientInt.INVENTORY_TAB, SOCIAL_TAB);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.debug("Unable to open the social panel", ex);
         }
     }
 
-    private void restoreSocialPanel()
-    {
-        if (previousTab == Integer.MIN_VALUE)
-        {
+    private void restoreSocialPanel() {
+        if (previousTab == Integer.MIN_VALUE) {
             return;
         }
-        try
-        {
-            if (client.getVarcIntValue(VarClientInt.INVENTORY_TAB) == SOCIAL_TAB)
-            {
+        try {
+            if (client.getVarcIntValue(VarClientInt.INVENTORY_TAB) == SOCIAL_TAB) {
                 client.setVarcIntValue(VarClientInt.INVENTORY_TAB, previousTab);
             }
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.debug("Unable to restore the previous side panel", ex);
-        }
-        finally
-        {
+        } finally {
             previousTab = Integer.MIN_VALUE;
         }
     }
 
-    private MessageNode findMessageNode(int messageId)
-    {
-        if (messageId < 0 || client.getMessages() == null)
-        {
+    private MessageNode findMessageNode(int messageId) {
+        if (messageId < 0 || client.getMessages() == null) {
             return null;
         }
 
-        try
-        {
+        try {
             return client.getMessages().get(messageId);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.debug("Unable to resolve MessageNode {}", messageId, ex);
             return null;
         }
     }
 
-    private void lookupPlayer(String username, int messageId)
-    {
+    private void lookupPlayer(String username, int messageId) {
         HiscorePlugin hiscorePlugin = findActiveHiscorePlugin();
-        if (hiscorePlugin == null)
-        {
+        if (hiscorePlugin == null) {
             notifyUnavailable("Enable the HiScore plugin to look up " + username + ".");
             return;
         }
 
-        try
-        {
+        try {
             Method getWorldEndpoint = HiscorePlugin.class.getDeclaredMethod("getWorldEndpoint");
             Method lookupPlayer = HiscorePlugin.class.getDeclaredMethod(
                 "lookupPlayer", String.class, HiscoreEndpoint.class);
@@ -314,16 +265,13 @@ public class PlayerMenuService
             lookupPlayer.setAccessible(true);
 
             HiscoreEndpoint endpoint = (HiscoreEndpoint) getWorldEndpoint.invoke(hiscorePlugin);
-            if (endpoint == null)
-            {
+            if (endpoint == null) {
                 notifyUnavailable("HiScore lookup is unavailable right now.");
                 return;
             }
             endpoint = resolveChatHiscoreEndpoint(username, messageId, endpoint);
             lookupPlayer.invoke(hiscorePlugin, Text.removeTags(username), endpoint);
-        }
-        catch (ReflectiveOperationException | RuntimeException ex)
-        {
+        } catch (ReflectiveOperationException | RuntimeException ex) {
             Throwable cause = ex instanceof InvocationTargetException && ex.getCause() != null
                 ? ex.getCause()
                 : ex;
@@ -338,28 +286,20 @@ public class PlayerMenuService
      * world is treated as a normal-world player.
      */
     private HiscoreEndpoint resolveChatHiscoreEndpoint(
-        String username, int messageId, HiscoreEndpoint worldEndpoint)
-    {
+        String username, int messageId, HiscoreEndpoint worldEndpoint) {
         MessageNode messageNode = findMessageNode(messageId);
         String rawName = messageNode != null && messageNode.getName() != null
             ? messageNode.getName()
             : username;
 
         HiscoreEndpoint chatEndpoint = HiscoreEndpoint.NORMAL;
-        if (rawName.contains(IconID.IRONMAN.toString()))
-        {
+        if (rawName.contains(IconID.IRONMAN.toString())) {
             chatEndpoint = HiscoreEndpoint.IRONMAN;
-        }
-        else if (rawName.contains(IconID.ULTIMATE_IRONMAN.toString()))
-        {
+        } else if (rawName.contains(IconID.ULTIMATE_IRONMAN.toString())) {
             chatEndpoint = HiscoreEndpoint.ULTIMATE_IRONMAN;
-        }
-        else if (rawName.contains(IconID.HARDCORE_IRONMAN.toString()))
-        {
+        } else if (rawName.contains(IconID.HARDCORE_IRONMAN.toString())) {
             chatEndpoint = HiscoreEndpoint.HARDCORE_IRONMAN;
-        }
-        else if (rawName.contains(IconID.LEAGUE.toString()))
-        {
+        } else if (rawName.contains(IconID.LEAGUE.toString())) {
             chatEndpoint = HiscoreEndpoint.SEASONAL;
         }
 
@@ -368,46 +308,34 @@ public class PlayerMenuService
             : worldEndpoint;
     }
 
-    private HiscorePlugin findActiveHiscorePlugin()
-    {
+    private HiscorePlugin findActiveHiscorePlugin() {
         Collection<Plugin> plugins = pluginManager.getPlugins();
-        if (plugins == null)
-        {
+        if (plugins == null) {
             return null;
         }
 
-        for (Plugin plugin : plugins)
-        {
-            if (plugin instanceof HiscorePlugin && pluginManager.isPluginActive(plugin))
-            {
+        for (Plugin plugin : plugins) {
+            if (plugin instanceof HiscorePlugin && pluginManager.isPluginActive(plugin)) {
                 return (HiscorePlugin) plugin;
             }
         }
         return null;
     }
 
-    private void copyUsername(String username)
-    {
-        try
-        {
+    private void copyUsername(String username) {
+        try {
             StringSelection selection = new StringSelection(Text.removeTags(username));
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.warn("Unable to copy username {} to the clipboard", username, ex);
             notifyUnavailable("Unable to copy " + username + " to the clipboard.");
         }
     }
 
-    private void notifyUnavailable(String message)
-    {
-        try
-        {
+    private void notifyUnavailable(String message) {
+        try {
             notificationService.pushChatMessage(message);
-        }
-        catch (Throwable ex)
-        {
+        } catch (Throwable ex) {
             log.debug("Unable to show player-menu notification: {}", message, ex);
         }
     }
