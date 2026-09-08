@@ -12,3 +12,4 @@ nul
 .claude/
 dev.gradle
 bin/
+buildlog.txt
