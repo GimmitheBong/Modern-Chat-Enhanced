@@ -89,6 +89,7 @@ public class PeekChatFeature extends AbstractChatFeature<PeekChatFeatureConfig>
 		int featurePeek_FadeDuration();
 		String featurePeek_SourceTabKey();
 		boolean featurePeek_SuppressFadeAtGE();
+		boolean featurePeek_UnfadeOnCollapsed();
 		boolean featurePeek_ShowCurrentTab();
 	}
 

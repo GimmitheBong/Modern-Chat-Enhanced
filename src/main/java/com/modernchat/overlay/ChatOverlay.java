@@ -1683,6 +1683,28 @@ public class ChatOverlay extends OverlayPanel
         eventBus.post(new ChatMenuOpenedEvent());
     }
 
+    private @Nullable MessageContainer containerForTab(@Nullable Tab tab) {
+        if (tab == null)
+            return null;
+
+        String key = tab.getKey();
+        if (key == null)
+            return null;
+
+        if (ALL_TAB_KEY.equals(key))
+            return allContainer;
+        if (GAME_TAB_KEY.equals(key))
+            return gameContainer;
+        if (TRADE_TAB_KEY.equals(key))
+            return tradeContainer;
+        if (tab.isPrivate()) {
+            String targetName = tab.getTargetName();
+            // ConcurrentHashMap rejects null keys
+            return targetName != null ? privateContainers.get(targetName) : null;
+        }
+        return messageContainers.get(key);
+    }
+
     @Subscribe
     public void onChatPrivateMessageSentEvent(ChatPrivateMessageSentEvent e) {
         // In single chat mode with PM tabs disabled, close the PM tab after sending
@@ -2406,8 +2428,7 @@ public class ChatOverlay extends OverlayPanel
             && chatboxParent.getOriginalWidth() == width
             && chatboxParent.getOriginalHeight() == height
             && chatboxParent.getWidthMode() == WidgetSizeMode.ABSOLUTE
-            && chatboxParent.getHeightMode() == WidgetSizeMode.ABSOLUTE)
-        {
+            && chatboxParent.getHeightMode() == WidgetSizeMode.ABSOLUTE) {
             return;
         }
 

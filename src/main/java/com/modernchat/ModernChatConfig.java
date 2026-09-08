@@ -1745,6 +1745,18 @@ public interface ModernChatConfig extends Config, ModernChatConfigBase
         return false;
     }
 
+    @ConfigItem(
+        keyName = Keys.featurePeek_UnfadeOnCollapsed,
+        name = "Unfade On Repeated Messages",
+        description = "Re-show the faded peek overlay when a collapsed/repeated message arrives (e.g. duplicate messages collapsed into 'message (2)' by the chat filter)",
+        position = 28,
+        section = peekOverlaySection
+    )
+    @Override
+    default boolean featurePeek_UnfadeOnCollapsed() {
+        return true;
+    }
+
     /* ------------ Feature: Commands ------------ */
 
     @ConfigItem(
