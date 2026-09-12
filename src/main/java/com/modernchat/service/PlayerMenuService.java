@@ -7,9 +7,6 @@ import net.runelite.api.Client;
 import net.runelite.api.IconID;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MessageNode;
-import net.runelite.api.ScriptEvent;
-import net.runelite.api.VarClientInt;
-import net.runelite.api.VarClientStr;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.callback.ClientThread;
@@ -25,13 +22,18 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Recreates the player-name menu exposed by the legacy chatbox for Modern Chat usernames.
- * Add friend / Add ignore are committed through the social panel's own add input, the same
- * mechanism the game uses when a name is typed into the add field.
+ * Add friend / Add ignore are executed natively: the click is forwarded to the game as the
+ * chat line's own CC_OP menu action (the same call RuneLite itself uses), so the game adds
+ * the name directly without opening any input box.
  */
 @Slf4j
 @Singleton
@@ -42,15 +44,15 @@ public class PlayerMenuService
     private static final String LOOKUP = "Look up";
     private static final String COPY_TO_CLIPBOARD = "Copy to clipboard";
 
-    // Side-panel tab index for the social (friends) tab in VarClientInt.INVENTORY_TAB.
-    private static final int SOCIAL_TAB = 8;
+    // Fallback ops when a chat line widget has no populated actions array. The game's
+    // chat-line menu is: 1 = Message, 2 = Add ignore, 3 = Add friend.
+    private static final int OP_ADD_IGNORE = 2;
+    private static final int OP_ADD_FRIEND = 3;
 
     private final Client client;
     private final ClientThread clientThread;
     private final PluginManager pluginManager;
     private final NotificationService notificationService;
-
-    private int previousTab = Integer.MIN_VALUE;
 
     @Inject
     public PlayerMenuService(
@@ -84,13 +86,13 @@ public class PlayerMenuService
             .setOption(ADD_FRIEND)
             .setTarget(username)
             .setType(MenuAction.RUNELITE)
-            .onClick(entry -> invokeChatAction(username, messageId, ADD_FRIEND));
+            .onClick(entry -> invokeNativeChatAction(username, messageId, ADD_FRIEND));
 
         client.getMenu().createMenuEntry(1)
             .setOption(ADD_IGNORE)
             .setTarget(username)
             .setType(MenuAction.RUNELITE)
-            .onClick(entry -> invokeChatAction(username, messageId, ADD_IGNORE));
+            .onClick(entry -> invokeNativeChatAction(username, messageId, ADD_IGNORE));
 
         client.getMenu().createMenuEntry(1)
             .setOption(LOOKUP)
@@ -105,135 +107,130 @@ public class PlayerMenuService
             .onClick(entry -> copyUsername(username));
     }
 
-    private void invokeChatAction(String username, int messageId, String action) {
-        clientThread.invokeLater(() -> dispatchChatAction(username, messageId, action, 0));
+    private void invokeNativeChatAction(String username, int messageId, String action) {
+        clientThread.invokeLater(() -> dispatchNativeChatAction(username, messageId, action));
     }
 
     /**
-     * Commits an Add friend / Add ignore action through the social panel's own add slot: the name
-     * is written to the chat input and the panel's Add Friend/Add Ignore action is dispatched. If
-     * the panel is not loaded the social tab is opened once and the attempt retried.
+     * Forwards Add friend / Add ignore to the game as the chat line's own CC_OP menu action,
+     * exactly as if the vanilla chatbox entry had been clicked. The game resolves the widget,
+     * runs its listener with full menu state, and sends the request itself.
      */
-    private void dispatchChatAction(String username, int messageId, String action, int phase) {
+    private void dispatchNativeChatAction(String username, int messageId, String action) {
         try {
-            final boolean ignore = ADD_IGNORE.equals(action);
-            if (!ADD_FRIEND.equals(action) && !ignore) {
+            if (!ADD_FRIEND.equals(action) && !ADD_IGNORE.equals(action)) {
                 notifyUnavailable(action + " is unavailable for " + username + ".");
                 return;
             }
 
-            if (executeSocialPanelAdd(username, ignore)) {
-                restoreSocialPanel();
+            Widget line = findChatLineWidget(username, messageId, action);
+            if (line == null) {
+                notifyUnavailable(action + " is unavailable for " + username + ".");
                 return;
             }
 
-            if (phase == 0) {
-                previousTab = rememberCurrentTab();
-                openSocialPanel();
-                clientThread.invokeAtTickEnd(() -> dispatchChatAction(username, messageId, action, 1));
+            int op = opForAction(line.getActions(), action);
+            if (op <= 0) {
+                notifyUnavailable(action + " is unavailable for " + username + ".");
                 return;
             }
 
-            restoreSocialPanel();
-            notifyUnavailable(action + " is unavailable for " + username + ".");
+            String target = Text.removeTags(username);
+            MenuAction type = op >= 6 ? MenuAction.CC_OP_LOW_PRIORITY : MenuAction.CC_OP;
+            client.menuAction(-1, line.getId(), type, op, -1, action, target);
+            log.debug("chatmenu: native {} for {} on line={} op={} actions={}", action, username,
+                Integer.toHexString(line.getId()), op,
+                line.getActions() == null ? null : String.join(",", line.getActions()));
         } catch (Throwable ex) {
             log.warn("Unable to execute chat action {} for {}", action, username, ex);
             notifyUnavailable(action + " is unavailable for " + username + ".");
         }
     }
 
-    /**
-     * Dispatches the game's social-panel add action, mirroring how the client commits an entry
-     * typed into the Add Friend / Add Ignore field.
-     */
-    private boolean executeSocialPanelAdd(String username, boolean ignore) {
-        final String name = Text.removeTags(username);
-        final String label = ignore ? "ignore" : "friends";
-        final int boxId = ignore ? InterfaceID.Ignore.ADDIGNORE : InterfaceID.Friends.ADDFRIEND;
-        final int universeId = ignore ? InterfaceID.Ignore.UNIVERSE : InterfaceID.Friends.UNIVERSE;
-
-        Widget universe = client.getWidget(universeId);
-        Widget box = client.getWidget(boxId);
-        if (universe == null) {
-            log.debug("chatmenu-panel: {} universe not loaded for {}", label, username);
-        }
-        if (box == null) {
-            log.debug("chatmenu-panel: {} add box missing for {} (universe={})", label, username,
-                universe == null ? null : Integer.toHexString(universe.getId()));
-            return false;
+    private Widget findChatLineWidget(String username, int messageId, String action) {
+        final String normalizedUsername = normalize(username);
+        if (normalizedUsername.isEmpty()) {
+            return null;
         }
 
-        Object[] listener = box.getOnOpListener();
-        if (listener == null || listener.length == 0) {
-            log.debug("chatmenu-panel: {} add box has no listener: id={} name={} text={} actions={}",
-                label, Integer.toHexString(box.getId()), box.getName(), box.getText(),
-                box.getActions() == null ? null : Arrays.toString(box.getActions()));
-            return false;
+        MessageNode messageNode = findMessageNode(messageId);
+        final int expectedType = messageNode != null && messageNode.getType() != null
+            ? messageNode.getType().getType()
+            : Integer.MIN_VALUE;
+        final String expectedBody = messageNode != null ? normalizeBody(messageNode.getValue()) : "";
+
+        List<Widget> candidates = new ArrayList<>();
+        collectWidget(client.getWidget(InterfaceID.Chatbox.SCROLLAREA), candidates);
+        collectWidget(client.getWidget(InterfaceID.Chatbox.MES_LAYER_SCROLLAREA), candidates);
+        collectWidget(client.getWidget(InterfaceID.Chatbox.MES_LAYER_SCROLLCONTENTS), candidates);
+        collectWidget(client.getWidget(InterfaceID.Chatbox.CHATDISPLAY), candidates);
+        for (int componentId = InterfaceID.Chatbox.LINE0;
+             componentId <= InterfaceID.Chatbox.LINE99;
+             componentId++) {
+            collectWidget(client.getWidget(componentId), candidates);
         }
 
-        try {
-            client.setVarcStrValue(VarClientStr.INPUT_TEXT, name);
-            client.setVarcIntValue(VarClientInt.INPUT_TYPE, 1);
-        } catch (Throwable ex) {
-            log.debug("Unable to seed the chat input", ex);
-        }
+        Set<Integer> seen = new HashSet<>();
+        Widget best = null;
+        int bestScore = Integer.MIN_VALUE;
 
-        Object[] args = new Object[listener.length];
-        System.arraycopy(listener, 0, args, 0, listener.length);
-        for (int i = 0; i < args.length; i++) {
-            if (ScriptEvent.NAME.equals(args[i])) {
-                args[i] = name;
+        for (Widget widget : candidates) {
+            if (widget == null || !seen.add(widget.getId())) {
+                continue;
+            }
+
+            int score = 0;
+            if (matchesUsername(widget, normalizedUsername)) {
+                score += 8;
+            }
+            if (widget.getActions() != null) {
+                score += 10;
+            }
+            Object[] listener = widget.getOnOpListener();
+            if (expectedType != Integer.MIN_VALUE && listener != null && listener.length > 0
+                && listenerMessageType(listener) == expectedType) {
+                score += 4;
+            }
+            if (!expectedBody.isEmpty() && expectedBody.equals(normalizeBody(widget.getText()))) {
+                score += 8;
+            }
+
+            if (score > bestScore) {
+                best = widget;
+                bestScore = score;
             }
         }
 
-        ScriptEvent event = client.createScriptEventBuilder(args)
-            .setSource(box)
-            .setOp(1)
-            .build();
-        event.run();
-        log.debug("chatmenu-panel: dispatched {} for {} on box={} type={} listener={}", label, name,
-            Integer.toHexString(box.getId()), inputState(),
-            Arrays.toString(listener));
-        return true;
-    }
-
-    private String inputState() {
-        try {
-            return "INPUT_TYPE=" + client.getVarcIntValue(VarClientInt.INPUT_TYPE)
-                + " INPUT_TEXT=" + client.getVarcStrValue(VarClientStr.INPUT_TEXT);
-        } catch (Throwable ex) {
-            return "INPUT state=unknown";
+        // Only accept a widget that actually matched the user; never fall back to an
+        // unrelated line or the game would act on the wrong name.
+        if (best != null && bestScore < 8) {
+            log.debug("chatmenu: no line matched {} (best score {} on {})", normalizedUsername,
+                bestScore, Integer.toHexString(best.getId()));
+            return null;
         }
+
+        log.debug("chatmenu: resolved {} for {} to {} score={} actions={}", action,
+            normalizedUsername, best == null ? null : Integer.toHexString(best.getId()), bestScore,
+            best == null || best.getActions() == null ? null : String.join(",", best.getActions()));
+        return best;
     }
 
-    private int rememberCurrentTab() {
-        try {
-            return client.getVarcIntValue(VarClientInt.INVENTORY_TAB);
-        } catch (Throwable ex) {
-            return Integer.MIN_VALUE;
-        }
+    private static void collectWidget(Widget widget, List<Widget> out) {
+        collectWidget(widget, out, 0);
     }
 
-    private void openSocialPanel() {
-        try {
-            client.setVarcIntValue(VarClientInt.INVENTORY_TAB, SOCIAL_TAB);
-        } catch (Throwable ex) {
-            log.debug("Unable to open the social panel", ex);
-        }
-    }
-
-    private void restoreSocialPanel() {
-        if (previousTab == Integer.MIN_VALUE) {
+    private static void collectWidget(Widget widget, List<Widget> out, int depth) {
+        if (widget == null || depth > 3) {
             return;
         }
-        try {
-            if (client.getVarcIntValue(VarClientInt.INVENTORY_TAB) == SOCIAL_TAB) {
-                client.setVarcIntValue(VarClientInt.INVENTORY_TAB, previousTab);
+        out.add(widget);
+        Widget[] children = widget.getChildren();
+        if (children != null) {
+            for (Widget child : children) {
+                if (child != null) {
+                    collectWidget(child, out, depth + 1);
+                }
             }
-        } catch (Throwable ex) {
-            log.debug("Unable to restore the previous side panel", ex);
-        } finally {
-            previousTab = Integer.MIN_VALUE;
         }
     }
 
@@ -248,6 +245,95 @@ public class PlayerMenuService
             log.debug("Unable to resolve MessageNode {}", messageId, ex);
             return null;
         }
+    }
+
+    /**
+     * Returns the 1-based op for the given action in the widget's actions array, or {@code -1}.
+     * The op of a widget menu entry is its 1-based position in {@link Widget#getActions()},
+     * not a fixed constant; it must be derived from the actions the game has populated.
+     */
+    private static int actionOp(String[] actions, String action) {
+        if (actions == null) {
+            return -1;
+        }
+
+        final String wanted = Text.removeTags(action).trim().toLowerCase(Locale.ENGLISH);
+        for (int i = 0; i < actions.length; i++) {
+            if (actions[i] == null || actions[i].isEmpty()) {
+                continue;
+            }
+            String candidate = Text.removeTags(actions[i]).trim().toLowerCase(Locale.ENGLISH);
+            if (wanted.equals(candidate)) {
+                return i + 1;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Chooses the op to invoke for the action. Prefers the action's position in the
+     * widget's actions array when the game has populated one, and otherwise falls back
+     * to the fixed ops the game's chat-line menu uses.
+     */
+    private static int opForAction(String[] actions, String action) {
+        int derived = actionOp(actions, action);
+        if (derived > 0) {
+            return derived;
+        }
+        if (ADD_IGNORE.equals(action)) {
+            return OP_ADD_IGNORE;
+        }
+        if (ADD_FRIEND.equals(action)) {
+            return OP_ADD_FRIEND;
+        }
+        return -1;
+    }
+
+    private static boolean matchesUsername(Widget widget, String normalizedUsername) {
+        if (normalizedUsername.isEmpty()) {
+            return false;
+        }
+
+        String name = normalize(widget.getName());
+        if (normalizedUsername.equals(name)) {
+            return true;
+        }
+
+        String text = normalizeSenderText(widget.getText());
+        if (normalizedUsername.equals(text)) {
+            return true;
+        }
+
+        // The line widget may hold the full "name: message" text rather than the sender alone.
+        if (text.startsWith(normalizedUsername) && text.length() > normalizedUsername.length()) {
+            char boundary = text.charAt(normalizedUsername.length());
+            return boundary == ':' || boundary == ' ' || boundary == '-';
+        }
+        return false;
+    }
+
+    private static int listenerMessageType(Object[] listener) {
+        Object value = listener[listener.length - 1];
+        return value instanceof Number ? ((Number) value).intValue() : Integer.MIN_VALUE;
+    }
+
+    private static String normalizeSenderText(String value) {
+        String normalized = normalize(value);
+        while (normalized.endsWith(":")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        return normalized;
+    }
+
+    private static String normalizeBody(String value) {
+        if (value == null) {
+            return "";
+        }
+        return Text.removeTags(value).replace('\u00A0', ' ').trim();
+    }
+
+    private static String normalize(String value) {
+        return value == null ? "" : Text.standardize(value);
     }
 
     private void lookupPlayer(String username, int messageId) {
