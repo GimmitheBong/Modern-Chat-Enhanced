@@ -164,8 +164,13 @@ public class MessageService implements ChatService
         if (isSendLocked())
             return true;
 
-        if (!isSendCooldownActive())
+        if (!isSendCooldownActive()) {
+            // A send outside the cooldown window starts a fresh burst window.
+            // Without this the hot counter only ever grows and one old burst
+            // locks every later message forever.
+            sendHotMessageCount.set(0);
             return false;
+        }
 
         sendHotMessageCount.incrementAndGet();
         if (sendHotMessageCount.get() < SEND_HOT_MESSAGE_MAX)

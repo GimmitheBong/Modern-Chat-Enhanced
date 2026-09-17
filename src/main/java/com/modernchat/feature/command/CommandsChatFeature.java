@@ -58,6 +58,8 @@ public class CommandsChatFeature extends AbstractChatFeature<CommandsChatFeature
     @Inject private WhisperChatCommand whisperChatCommand;
     @Inject private PrivateMessageChatCommand privateMessageChatCommand;
     @Inject private GroupIronmanChatCommand groupIronmanChatCommand;
+    @Inject private ClanChatCommand clanChatCommand;
+    @Inject private FriendsChatCommand friendsChatCommand;
 
     @Inject @Getter private Client client;
     @Inject @Getter private ClientThread clientThread;
@@ -129,6 +131,14 @@ public class CommandsChatFeature extends AbstractChatFeature<CommandsChatFeature
         commandHandlers.put("g", groupIronmanChatCommand);
         commandHandlers.put("gim", new ChatCommandLink("g"));
         commandHandlers.put("group", new ChatCommandLink("g"));
+
+        // /c send to clan chat
+        commandHandlers.put("c", clanChatCommand);
+        commandHandlers.put("clan", new ChatCommandLink("c"));
+
+        // /f send to friends chat
+        commandHandlers.put("f", friendsChatCommand);
+        commandHandlers.put("friends", new ChatCommandLink("f"));
     }
 
     private void shutDownCommandHandlers() {

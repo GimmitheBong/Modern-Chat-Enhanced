@@ -5,6 +5,7 @@ import com.modernchat.feature.command.CommandsChatFeature.CommandsChatConfig;
 import com.modernchat.service.MessageService;
 import com.modernchat.util.StringUtil;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.events.ChatboxInput;
 import net.runelite.client.util.Text;
 
@@ -14,6 +15,7 @@ import javax.inject.Inject;
 public class GroupIronmanChatCommand extends AbstractChatCommand {
 
     @Inject private MessageService messageService;
+    @Inject private ClientThread clientThread;
 
     @Override
     public void handleSubmit(String[] args, ChatboxInput ev) {
@@ -33,11 +35,14 @@ public class GroupIronmanChatCommand extends AbstractChatCommand {
         if (space < 0)
             return;
 
-        String text = stripped.substring(space + 1).trim();
+        final String text = stripped.substring(space + 1).trim();
         if (text.isEmpty())
             return;
 
         ev.consume();
-        messageService.sendMessage(text, ChatMode.CLAN_GIM, null);
+        log.debug("Routing slash command to group chat: {}", text);
+        // Defer past the in-flight chat send: running a second send script nested
+        // inside the vanilla input callback corrupts it and the message is lost.
+        clientThread.invokeLater(() -> messageService.sendMessage(text, ChatMode.CLAN_GIM, null));
     }
 }
