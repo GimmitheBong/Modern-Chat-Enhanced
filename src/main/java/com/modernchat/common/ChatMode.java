@@ -5,7 +5,9 @@ import lombok.Getter;
 @Getter
 public enum ChatMode
 {
-    CLAN_GIM(-2, -1),
+    // Values match the vanilla chatbox channel types (0 = public, 1 = cheat,
+    // 2 = friends chat, 3 = clan chat, 4 = guest clan, 5 = group chat).
+    CLAN_GIM(5, -1),
     PRIVATE(-1, -1),
     PUBLIC(0, 0),
     FRIENDS_CHAT(2, 1),

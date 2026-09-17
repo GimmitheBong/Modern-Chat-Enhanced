@@ -102,7 +102,9 @@ public class MessageService implements ChatService
             case CLAN_GUEST:
                 break;
             case CLAN_GIM:
-                clanType = ClanType.IRONMAN;
+                // Group chat uses the vanilla group channel type with the same
+                // default clan target the main/guest clan sends use.
+                clanType = ClanType.NORMAL;
                 break;
             case PRIVATE:
                 if (StringUtil.isNullOrEmpty(targetName)) {
